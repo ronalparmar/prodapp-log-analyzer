@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Upload Logs – ProdApp Log Analyzer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+           background: #f0f2f5; color: #333; }
+    nav { background: #1a1a2e; padding: 12px 24px; display: flex; align-items: center; gap: 24px; }
+    nav a { color: #e0e0e0; text-decoration: none; font-size: 14px; }
+    nav a:hover { color: #fff; }
+    nav .brand { color: #fff; font-weight: 700; font-size: 18px; text-decoration: none; }
+    .container { max-width: 700px; margin: 40px auto; padding: 0 16px; }
+    .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1); padding: 32px; }
+    h1 { font-size: 22px; margin-bottom: 20px; }
+    .drop-zone { border: 2px dashed #aaa; border-radius: 8px; padding: 40px; text-align: center;
+                 cursor: pointer; transition: border-color .2s; }
+    .drop-zone:hover { border-color: #4361ee; }
+    input[type=file] { display: none; }
+    .btn { display: inline-block; padding: 10px 24px; border-radius: 6px; font-size: 14px;
+           cursor: pointer; border: none; margin-top: 16px; }
+    .btn-primary { background: #4361ee; color: #fff; }
+    .btn-primary:hover { background: #3351de; }
+    .error { background: #fff0f0; color: #c00; border: 1px solid #fcc; border-radius: 6px;
+             padding: 12px 16px; margin-bottom: 16px; }
+    #file-name { margin-top: 8px; font-size: 13px; color: #666; }
+  </style>
+</head>
+<body>
+<nav>
+  <a class="brand" href="/">🔍 ProdApp Log Analyzer</a>
+  <a href="/upload">Upload</a>
+  <a href="/search">Search</a>
+  <a href="/uploads">All Uploads</a>
+</nav>
+<div class="container">
+  <div class="card">
+    <h1>Upload Log File</h1>
+    {% if error %}
+    <div class="error">{{ error }}</div>
+    {% endif %}
+    <form action="/upload" method="post" enctype="multipart/form-data">
+      <div class="drop-zone" onclick="document.getElementById('file-input').click()">
+        <div style="font-size:40px">📁</div>
+        <p><strong>Click to select</strong> or drag &amp; drop a file</p>
+        <p style="font-size:13px;color:#888;margin-top:6px">Supported: <code>.txt</code> or <code>.zip</code></p>
+        <div id="file-name"></div>
+        <input type="file" id="file-input" name="file" accept=".txt,.zip" required
+               onchange="document.getElementById('file-name').textContent = this.files[0]?.name || ''"/>
+      </div>
+      <button type="submit" class="btn btn-primary">Upload &amp; Parse</button>
+    </form>
+  </div>
+</div>
+<script>
+  const dz = document.querySelector('.drop-zone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.borderColor='#4361ee'; });
+  dz.addEventListener('dragleave', () => { dz.style.borderColor='#aaa'; });
+  dz.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.style.borderColor='#aaa';
+    const f = e.dataTransfer.files[0];
+    if (f) {
+      const inp = document.getElementById('file-input');
+      const dt = new DataTransfer();
+      dt.items.add(f);
+      inp.files = dt.files;
+      document.getElementById('file-name').textContent = f.name;
+    }
+  });
+</script>
+</body>
+</html>

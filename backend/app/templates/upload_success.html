@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Upload Successful – ProdApp Log Analyzer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+           background: #f0f2f5; color: #333; }
+    nav { background: #1a1a2e; padding: 12px 24px; display: flex; align-items: center; gap: 24px; }
+    nav a { color: #e0e0e0; text-decoration: none; font-size: 14px; }
+    nav a:hover { color: #fff; }
+    nav .brand { color: #fff; font-weight: 700; font-size: 18px; text-decoration: none; }
+    .container { max-width: 800px; margin: 40px auto; padding: 0 16px; }
+    .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1); padding: 28px; margin-bottom: 20px; }
+    h1 { font-size: 22px; margin-bottom: 16px; color: #2a7a2a; }
+    h2 { font-size: 16px; color: #444; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; }
+    th { background: #f8f9fa; font-weight: 600; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .badge-qa { background: #fff3cd; color: #856404; }
+    .badge-prod { background: #d1fae5; color: #065f46; }
+    .badge-scan { background: #dbeafe; color: #1e40af; }
+    .badge-manual { background: #fce7f3; color: #9d174d; }
+    .btn { display: inline-block; padding: 8px 16px; border-radius: 6px; font-size: 13px; text-decoration: none; }
+    .btn-primary { background: #4361ee; color: #fff; }
+    .btn-secondary { background: #e5e7eb; color: #374151; }
+    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px; }
+    .meta-item { padding: 6px 0; }
+    .meta-label { font-weight: 600; color: #555; }
+  </style>
+</head>
+<body>
+<nav>
+  <a class="brand" href="/">🔍 ProdApp Log Analyzer</a>
+  <a href="/upload">Upload</a>
+  <a href="/search">Search</a>
+  <a href="/uploads">All Uploads</a>
+</nav>
+<div class="container">
+  <div class="card">
+    <h1>✅ Upload Successful</h1>
+    <p><strong>{{ upload.filename }}</strong> uploaded and parsed successfully.</p>
+    <br/>
+    <a class="btn btn-primary" href="/uploads/{{ upload.id }}/download">⬇ Download Original</a>
+    &nbsp;
+    <a class="btn btn-secondary" href="/search">Search Events</a>
+  </div>
+
+  {% for lf in log_files %}
+  <div class="card">
+    <h2>📄 {{ lf.filename }}</h2>
+    <div class="meta-grid">
+      <div class="meta-item"><span class="meta-label">Device ID:</span>
+        {% if lf.device_id %}
+          <a href="/devices/{{ lf.device_id }}">{{ lf.device_id }}</a>
+        {% else %}—{% endif %}
+      </div>
+      <div class="meta-item"><span class="meta-label">Environment:</span>
+        {% if lf.environment %}
+          <span class="badge badge-{{ lf.environment | lower }}">{{ lf.environment }}</span>
+        {% else %}—{% endif %}
+      </div>
+      <div class="meta-item"><span class="meta-label">Package:</span> {{ lf.package_name or '—' }}</div>
+      <div class="meta-item"><span class="meta-label">Username:</span> {{ lf.username or '—' }}</div>
+      <div class="meta-item"><span class="meta-label">App Versions:</span>
+        {% for av in lf.app_versions %}{{ av.version }}{% if not loop.last %}, {% endif %}{% endfor %}
+      </div>
+      <div class="meta-item"><span class="meta-label">Emails:</span>
+        {% for ue in lf.emails %}{{ ue.email }}{% if not loop.last %}, {% endif %}{% endfor %}
+      </div>
+      <div class="meta-item"><span class="meta-label">Scan Events:</span> {{ lf.scan_events | length }}</div>
+      <div class="meta-item"><span class="meta-label">Exceptions:</span> {{ lf.exception_events | length }}</div>
+    </div>
+
+    {% if lf.scan_events %}
+    <br/>
+    <h2>Scan Events</h2>
+    <table>
+      <thead><tr><th>Timestamp</th><th>Item Number</th><th>Format</th><th>Mode</th><th>Process</th></tr></thead>
+      <tbody>
+      {% for se in lf.scan_events %}
+      <tr>
+        <td>{{ se.raw_ts }}</td>
+        <td>{{ se.item_number }}</td>
+        <td>{{ se.barcode_format }}</td>
+        <td><span class="badge badge-{{ se.entry_mode }}">{{ se.entry_mode }}</span></td>
+        <td>{{ se.process }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if lf.exception_events %}
+    <br/>
+    <h2>Exceptions</h2>
+    <table>
+      <thead><tr><th>Timestamp</th><th>Type</th><th>Message</th></tr></thead>
+      <tbody>
+      {% for ex in lf.exception_events %}
+      <tr>
+        <td>{{ ex.raw_ts }}</td>
+        <td>{{ ex.exception_type }}</td>
+        <td>{{ ex.message[:120] }}{% if ex.message|length > 120 %}…{% endif %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    <br/>
+    <a class="btn btn-secondary" href="/logfiles/{{ lf.id }}/download">⬇ Download Log File</a>
+  </div>
+  {% endfor %}
+</div>
+</body>
+</html>

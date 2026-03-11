@@ -1,0 +1,36 @@
+2026-02-18 09:15:33.8266 Device set up ---- Device Id - TC5705956
+2026-02-18 09:15:33.9100 App version ---- 550.25.310.1
+2026-02-18 09:15:34.1200 Database path set to: /data/user/0/com.postenbring.shopapp.norwayqa/cache/ShopAppNorway.db
+2026-02-18 09:15:35.2300 CreateWindow: MainActivity
+2026-02-18 09:15:36.4400 @LoginViewModel init
+2026-02-18 09:15:40.5500 Profile information received for user : ronal.parmar@tcs.com
+2026-02-18 09:15:41.3300 Validated User & Authorised User - ronal.parmar@tcs.com, App Version : 550.25.310.1
+2026-02-18 09:16:00.1100 Auto login & Authorised User - ronal.parmar
+2026-02-18 09:16:05.2200 @ScanningViewModel init
+2026-02-18 09:16:10.3300 Scanned package number 00370438104439901228 bar code format CODE128 in DeliveryToCustomer process
+2026-02-18 09:16:15.4400 Scanned package number 37041234567890123456 bar code format CODE128 in DeliveryToCustomer process
+2026-02-18 09:16:20.5500 Scanned package number KS000172751NO bar code format ManualInput in DeliveryToCustomer process
+2026-02-18 09:16:25.6600 Scanned package number 00370438104439901228 bar code format CODE128 in DeliveryToCustomer process
+2026-02-18 09:17:00.7700 Scanned package number PK123456789NO bar code format ManualInput in ReturnToSender process
+2026-02-18 09:17:30.8800 App version ---- 550.26.1.1
+2026-02-18 09:17:35.9900 Scanned package number 99987654321012345678 bar code format CODE128 in PickUp process
+2026-02-18 09:18:00.0011 TaskSchedulerOnUnobservedTaskException System.Exception: Connection failed
+2026-02-18 09:18:00.0012   at ShopApp.Services.SyncService.SyncAsync()
+2026-02-18 09:18:00.0013   at System.Threading.Tasks.Task.<>c.<ThrowAsync>b__128_0(Object state)
+2026-02-18 09:18:05.1122 Retrying connection...
+2026-02-18 09:18:10.2233 Scanned package number 00370000111222333444 bar code format CODE128 in PickUp process
+2026-02-18 09:19:00.3344 NullReferenceException: Object reference not set to an instance of an object.
+2026-02-18 09:19:00.3345   at ShopApp.ViewModels.ScanViewModel.OnScanResult(String barcode)
+2026-02-18 09:20:00.4455 CreateWindow: ScanActivity
+2026-02-18 09:20:05.5566 @ScanningViewModel init
+2026-02-18 09:20:10.6677 Scanned package number 00370438104439901228 bar code format CODE128 in PickUp process
+2026-02-18 09:20:15.7788 Scanned package number AB123456789DE bar code format ManualInput in PickUp process
+2026-02-18 09:25:00.8899 Database path set to: /data/user/0/com.postenbring.shopapp.norwayqa/cache/ShopAppNorway.db
+2026-02-18 09:25:01.9900 App version ---- 550.26.1.1
+2026-02-18 09:25:05.0011 Unhandled exception in background thread: System.InvalidOperationException: Sequence contains no elements
+2026-02-18 09:25:05.0012   at System.Linq.Enumerable.First[TSource](IEnumerable`1 source)
+2026-02-18 09:25:10.1122 Scanned package number 00370000999888777666 bar code format CODE128 in DeliveryToCustomer process
+2026-02-18 09:26:00.2233 Scanned package number KS000172751NO bar code format ManualInput in DeliveryToCustomer process
+2026-02-18 09:27:00.3344 Profile information received for user : another.user@tcs.com
+2026-02-18 09:27:01.4455 Validated User & Authorised User - another.user@tcs.com, App Version : 550.26.1.1
+2026-02-18 09:27:05.5566 Scanned package number 37041111222233334444 bar code format CODE128 in ReturnToSender process

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Uploads – ProdApp Log Analyzer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+           background: #f0f2f5; color: #333; }
+    nav { background: #1a1a2e; padding: 12px 24px; display: flex; align-items: center; gap: 24px; }
+    nav a { color: #e0e0e0; text-decoration: none; font-size: 14px; }
+    nav a:hover { color: #fff; }
+    nav .brand { color: #fff; font-weight: 700; font-size: 18px; text-decoration: none; }
+    .container { max-width: 900px; margin: 30px auto; padding: 0 16px; }
+    .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1); padding: 24px; margin-bottom: 20px; }
+    h1 { font-size: 22px; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; }
+    th { background: #f8f9fa; font-weight: 600; }
+    tr:hover { background: #f9fafb; }
+    .btn { display: inline-block; padding: 5px 12px; border-radius: 5px; font-size: 12px; text-decoration: none; }
+    .btn-secondary { background: #e5e7eb; color: #374151; }
+    .empty { color: #888; text-align: center; padding: 30px; }
+    a { color: #4361ee; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+<nav>
+  <a class="brand" href="/">🔍 ProdApp Log Analyzer</a>
+  <a href="/upload">Upload</a>
+  <a href="/search">Search</a>
+  <a href="/uploads">All Uploads</a>
+</nav>
+<div class="container">
+  <div class="card">
+    <h1>All Uploads</h1>
+    {% if uploads %}
+    <table>
+      <thead>
+        <tr><th>#</th><th>Filename</th><th>Uploaded At</th><th>Size</th><th>Log Files</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+      {% for u in uploads %}
+      <tr>
+        <td>{{ u.id }}</td>
+        <td>{{ u.filename }}</td>
+        <td>{{ u.uploaded_at.strftime('%Y-%m-%d %H:%M') if u.uploaded_at else '—' }}</td>
+        <td>{% if u.file_size %}{{ (u.file_size / 1024) | round(1) }} KB{% else %}—{% endif %}</td>
+        <td>
+          {% for lf in u.log_files %}
+          <div>
+            {% if lf.device_id %}<a href="/devices/{{ lf.device_id }}">{{ lf.device_id }}</a>{% endif %}
+            {{ lf.filename }}
+          </div>
+          {% endfor %}
+        </td>
+        <td>
+          <a class="btn btn-secondary" href="/uploads/{{ u.id }}/download">⬇ Download</a>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">No uploads yet. <a href="/upload">Upload a log file</a> to get started.</div>
+    {% endif %}
+  </div>
+</div>
+</body>
+</html>
