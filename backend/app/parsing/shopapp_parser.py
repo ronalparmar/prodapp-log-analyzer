@@ -18,7 +18,16 @@ from typing import Iterator, Optional
 _TS_RE = re.compile(
     r"^(?P<ts>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)\s+(?P<msg>.*)$"
 )
-_DEVICE_ID_RE = re.compile(r"Device Id\s*-\s*(?P<deviceId>TC\d+)", re.IGNORECASE)
+# "Device set up ---- Device Id - TC5705956"  (any device-ID format after the dash)
+_DEVICE_ID_RE = re.compile(
+    r"Device set up\s*-+\s*Device Id\s*[-:]\s*(?P<deviceId>[A-Za-z0-9_\-]+)",
+    re.IGNORECASE,
+)
+# Fallback for bare "Device Id - <id>" lines (no "Device set up" prefix)
+_DEVICE_ID_FALLBACK_RE = re.compile(
+    r"\bDevice Id\s*[-:]\s*(?P<deviceId>[A-Za-z0-9_\-]+)",
+    re.IGNORECASE,
+)
 _APP_VERSION_RE = re.compile(r"App version\s*----\s*(?P<version>[\d.]+)", re.IGNORECASE)
 _EMAIL_VALIDATED_RE = re.compile(
     r"Validated User & Authorised User\s*-\s*(?P<email>[^,\s]+@[^,\s]+)",
@@ -38,12 +47,30 @@ _SCAN_RE = re.compile(
     r"Scanned package number\s+(?P<item>\S+)\s+bar code format\s+(?P<fmt>\S+)\s+in\s+(?P<process>\S+)\s+process",
     re.IGNORECASE,
 )
+# "GoodsEvent inserted: 601cd1b99d58411eb52a13d4931d2462"
+_GOODS_EVENT_RE = re.compile(
+    r"GoodsEvent inserted\s*:\s*(?P<guid>[a-fA-F0-9]{8,64})",
+    re.IGNORECASE,
+)
+# "Master data sync :: <info>"
+_MASTER_SYNC_RE = re.compile(
+    r"Master data sync\s*::\s*(?P<info>.+)",
+    re.IGNORECASE,
+)
+# "Return state is <state>"
+_RETURN_STATE_RE = re.compile(
+    r"Return state is\s+(?P<state>.+)",
+    re.IGNORECASE,
+)
 _EXCEPTION_RE = re.compile(r"Exception:", re.IGNORECASE)
 _UNHANDLED_RE = re.compile(r"\bUnhandled\b", re.IGNORECASE)
 _TASK_SCHEDULER_EX_RE = re.compile(r"TaskSchedulerOnUnobservedTaskException", re.IGNORECASE)
 
 # Session start markers
 _SESSION_MARKERS = ("CreateWindow:", "@LoginViewModel", "@ScanningViewModel")
+
+# Lines to look ahead after a scan to find associated GoodsEvent/ReturnState
+_SCAN_LOOKAHEAD = 15
 
 
 # ---------------------------------------------------------------------------
@@ -67,6 +94,8 @@ class ScanEvent:
     entry_mode: str          # "scan" or "manual"
     process: str
     line_number: int
+    event_id: Optional[str] = None       # GUID from "GoodsEvent inserted: <guid>"
+    return_state: Optional[str] = None   # from "Return state is <state>"
 
 
 @dataclass
@@ -80,6 +109,14 @@ class ExceptionEvent:
 
 
 @dataclass
+class MasterDataSyncEvent:
+    timestamp: Optional[datetime]
+    raw_ts: str
+    info: str
+    line_number: int
+
+
+@dataclass
 class ParseResult:
     device_id: Optional[str] = None
     app_versions: list[str] = field(default_factory=list)
@@ -89,6 +126,7 @@ class ParseResult:
     environment: Optional[str] = None
     scan_events: list[ScanEvent] = field(default_factory=list)
     exception_events: list[ExceptionEvent] = field(default_factory=list)
+    master_sync_events: list[MasterDataSyncEvent] = field(default_factory=list)
     all_lines: list[LogLine] = field(default_factory=list)
     sessions: list[dict] = field(default_factory=list)
 
@@ -150,10 +188,14 @@ def parse_log_lines(
     for idx, pl in enumerate(parsed_lines):
         msg = pl.message
 
-        # deviceId
+        # deviceId — "Device set up ---- Device Id - TC5705956"
         m = _DEVICE_ID_RE.search(msg)
         if m and result.device_id is None:
             result.device_id = m.group("deviceId")
+        elif result.device_id is None:
+            m = _DEVICE_ID_FALLBACK_RE.search(msg)
+            if m:
+                result.device_id = m.group("deviceId")
 
         # appVersion
         m = _APP_VERSION_RE.search(msg)
@@ -189,6 +231,19 @@ def parse_log_lines(
                 result.package_name = pkg
                 result.environment = _determine_environment(pkg)
 
+        # master data sync
+        m = _MASTER_SYNC_RE.search(msg)
+        if m:
+            result.master_sync_events.append(
+                MasterDataSyncEvent(
+                    timestamp=pl.timestamp,
+                    raw_ts=pl.raw_ts,
+                    info=m.group("info").strip(),
+                    line_number=pl.line_number,
+                )
+            )
+            continue  # not also an exception
+
         # scan event
         m = _SCAN_RE.search(msg)
         if m:
@@ -213,10 +268,8 @@ def parse_log_lines(
             or _TASK_SCHEDULER_EX_RE.search(msg)
         )
         if is_exception:
-            # Extract exception type and message from line
             exc_type = msg.split(":")[0].strip() if ":" in msg else msg.strip()
             exc_msg = msg[len(exc_type) + 1:].strip() if ":" in msg else ""
-            # Gather context lines around this exception
             start = max(0, idx - exception_context)
             end = min(len(parsed_lines), idx + exception_context + 1)
             ctx = [pl2.raw_ts + " " + pl2.message for pl2 in parsed_lines[start:end]]
@@ -230,6 +283,23 @@ def parse_log_lines(
                     line_number=pl.line_number,
                 )
             )
+
+    # Post-processing: associate GoodsEvent GUID and return_state with each scan.
+    # For each scan at line_number N (1-based), look at parsed_lines[N:N+LOOKAHEAD]
+    # for the nearest GoodsEvent and Return‑state lines.
+    for scan in result.scan_events:
+        start_idx = scan.line_number  # lines AFTER the scan (line_number is 1-based → 0-based index = N-1, so index N is the next line)
+        for pl in parsed_lines[start_idx : start_idx + _SCAN_LOOKAHEAD]:
+            if scan.event_id is None:
+                m = _GOODS_EVENT_RE.search(pl.message)
+                if m:
+                    scan.event_id = m.group("guid")
+            if scan.return_state is None:
+                m = _RETURN_STATE_RE.search(pl.message)
+                if m:
+                    scan.return_state = m.group("state").strip()
+            if scan.event_id and scan.return_state:
+                break
 
     # Session detection
     result.sessions = _detect_sessions(parsed_lines, session_gap_minutes)
@@ -250,36 +320,22 @@ def _detect_sessions(parsed_lines: list[LogLine], gap_minutes: int) -> list[dict
             and pl.timestamp is not None
             and current["end"] is not None
         ):
-            delta = (pl.timestamp - current["end"]).total_seconds()
-            time_gap = delta > gap_minutes * 60
+            delta = (pl.timestamp - current["end"]).total_seconds() / 60
+            time_gap = delta > gap_minutes
 
         if is_marker or time_gap:
             if current["lines"]:
                 sessions.append(current)
             current = {"start": pl.timestamp, "end": pl.timestamp, "lines": [pl]}
         else:
-            if current["start"] is None and pl.timestamp is not None:
-                current["start"] = pl.timestamp
-            if pl.timestamp is not None:
-                current["end"] = pl.timestamp
             current["lines"].append(pl)
+            if pl.timestamp:
+                if current["start"] is None:
+                    current["start"] = pl.timestamp
+                current["end"] = pl.timestamp
 
     if current["lines"]:
         sessions.append(current)
 
     return sessions
 
-
-# ---------------------------------------------------------------------------
-# Convenience: parse a file path
-# ---------------------------------------------------------------------------
-
-def parse_log_file(
-    path: str,
-    exception_context: int = 10,
-    session_gap_minutes: int = 20,
-) -> ParseResult:
-    """Read a log file and parse it."""
-    with open(path, "r", encoding="utf-8", errors="replace") as fh:
-        lines = fh.readlines()
-    return parse_log_lines(lines, exception_context=exception_context, session_gap_minutes=session_gap_minutes)

@@ -3,118 +3,355 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Upload Successful – ProdApp Log Analyzer</title>
+  <title>Upload Successful — ProdApp Log Analyzer</title>
+  <link rel="stylesheet" href="/static/pb.css"/>
+  <script src="/static/pb.js" defer></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-           background: #f0f2f5; color: #333; }
-    nav { background: #1a1a2e; padding: 12px 24px; display: flex; align-items: center; gap: 24px; }
-    nav a { color: #e0e0e0; text-decoration: none; font-size: 14px; }
-    nav a:hover { color: #fff; }
-    nav .brand { color: #fff; font-weight: 700; font-size: 18px; text-decoration: none; }
-    .container { max-width: 800px; margin: 40px auto; padding: 0 16px; }
-    .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1); padding: 28px; margin-bottom: 20px; }
-    h1 { font-size: 22px; margin-bottom: 16px; color: #2a7a2a; }
-    h2 { font-size: 16px; color: #444; margin-bottom: 10px; }
-    table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; }
-    th { background: #f8f9fa; font-weight: 600; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; }
-    .badge-qa { background: #fff3cd; color: #856404; }
-    .badge-prod { background: #d1fae5; color: #065f46; }
-    .badge-scan { background: #dbeafe; color: #1e40af; }
-    .badge-manual { background: #fce7f3; color: #9d174d; }
-    .btn { display: inline-block; padding: 8px 16px; border-radius: 6px; font-size: 13px; text-decoration: none; }
-    .btn-primary { background: #4361ee; color: #fff; }
-    .btn-secondary { background: #e5e7eb; color: #374151; }
-    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 14px; }
-    .meta-item { padding: 6px 0; }
-    .meta-label { font-weight: 600; color: #555; }
+    .success-banner {
+      background: linear-gradient(135deg, #14532d, #166534);
+      border-radius: var(--radius); padding: 26px 28px;
+      display: flex; align-items: center; gap: 18px; margin-bottom: 20px; color: #fff;
+    }
+    .success-icon { font-size: 38px; flex-shrink: 0; }
+    .success-title { font-size: 20px; font-weight: 800; }
+    .success-sub   { font-size: 13.5px; opacity: .8; margin-top: 3px; }
+    .meta-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px; font-size: 13.5px; }
+    .meta-row  { display: flex; gap: 8px; padding: 9px 12px; border-radius: var(--radius-sm); background: var(--grey-1); align-items: flex-start; }
+    .meta-key  { font-weight: 700; color: var(--text-muted); min-width: 110px; flex-shrink: 0; }
+    @media (max-width: 600px) { .meta-grid { grid-template-columns: 1fr; } }
+    .section-tag { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--text-mid); margin: 18px 0 10px; padding-left: 10px; border-left: 3px solid var(--red); }
   </style>
 </head>
 <body>
+
 <nav>
-  <a class="brand" href="/">🔍 ProdApp Log Analyzer</a>
-  <a href="/upload">Upload</a>
-  <a href="/search">Search</a>
-  <a href="/uploads">All Uploads</a>
+  <a class="nav-brand" href="/">
+    <div class="nav-logo">PB</div>
+    <div class="nav-brand-text">
+      <span class="brand-top">Posten Bring</span>
+      <span class="brand-bot">Log Analyzer</span>
+    </div>
+  </a>
+  <div class="nav-spacer"></div>
+  <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="nav-links" id="navLinks">
+    <a href="/upload"  class="nav-link active">📤 Upload</a>
+    <a href="/search"  class="nav-link">🔎 Search</a>
+    <a href="/uploads" class="nav-link">📂 All Uploads</a>
+    <a href="/soti/"   class="nav-link">📡 SOTI MobiControl</a>
+  </div>
 </nav>
-<div class="container">
+
+<div class="container-md">
+
+  <div class="breadcrumb">
+    <a href="/">Home</a> › <a href="/upload">Upload</a> › <span>Success</span>
+  </div>
+
+  <div class="success-banner">
+    <div class="success-icon">✅</div>
+    <div>
+      <div class="success-title">Upload Successful</div>
+      <div class="success-sub">{{ upload.filename }} has been parsed and indexed.</div>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:10px;flex-wrap:wrap">
+      <a class="btn btn-ghost btn-sm" href="/uploads/{{ upload.id }}/download">⬇ Download</a>
+      <form method="post" action="/uploads/{{ upload.id }}/reparse" style="display:inline">
+        <button class="btn btn-ghost btn-sm" type="submit" onclick="return confirm('Reparse this upload? All parsed data will be replaced.')">🔄 Reparse</button>
+      </form>
+      <a class="btn btn-ghost btn-sm" href="/search">🔎 Search Events</a>
+      <a class="btn btn-ghost btn-sm" href="/upload">Upload Another</a>
+    </div>
+  </div>
+
+  {% for lf in log_files %}
+  {%- set scan_id  = 'scans-'  ~ lf.id -%}
+  {%- set exc_id   = 'excs-'   ~ lf.id -%}
+  {%- set sync_id  = 'syncs-'  ~ lf.id -%}
   <div class="card">
-    <h1>✅ Upload Successful</h1>
-    <p><strong>{{ upload.filename }}</strong> uploaded and parsed successfully.</p>
-    <br/>
-    <a class="btn btn-primary" href="/uploads/{{ upload.id }}/download">⬇ Download Original</a>
-    &nbsp;
-    <a class="btn btn-secondary" href="/search">Search Events</a>
+    <div class="card-header">
+      <div>
+        <div class="card-title">📄 {{ lf.filename }}</div>
+        {% if lf.device_id %}
+        <div class="card-subtitle">Device: <a href="/devices/{{ lf.device_id }}">{{ lf.device_id }}</a></div>
+        {% endif %}
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        {% if lf.environment %}<span class="badge badge-{{ lf.environment | lower }}">{{ lf.environment }}</span>{% endif %}
+        <span class="badge badge-scan">{{ lf.scan_events | length }} scans</span>
+        {% if lf.exception_events %}<span class="badge badge-red">{{ lf.exception_events | length }} exceptions</span>{% endif %}
+        {% if lf.master_sync_events %}<span class="badge badge-grey">{{ lf.master_sync_events | length }} syncs</span>{% endif %}
+        <a class="btn btn-secondary btn-sm" href="/logfiles/{{ lf.id }}/download">⬇ Log File</a>
+      </div>
+    </div>
+
+    <div class="meta-grid">
+      <div class="meta-row"><span class="meta-key">Package</span><span class="meta-val">{{ lf.package_name or '—' }}</span></div>
+      <div class="meta-row"><span class="meta-key">Username</span><span class="meta-val">{{ lf.username or '—' }}</span></div>
+      <div class="meta-row">
+        <span class="meta-key">App Versions</span>
+        <span class="meta-val">{% for av in lf.app_versions %}{{ av.version }}{% if not loop.last %}, {% endif %}{% else %}—{% endfor %}</span>
+      </div>
+      <div class="meta-row">
+        <span class="meta-key">Emails</span>
+        <span class="meta-val">{% for ue in lf.emails %}{{ ue.email }}{% if not loop.last %}, {% endif %}{% else %}—{% endfor %}</span>
+      </div>
+    </div>
+
+    {% if lf.scan_events %}
+    <div class="section-tag">📦 Scan Events (<span id="{{ scan_id }}-count">{{ lf.scan_events | length }}</span>)</div>
+    <div class="table-wrap">
+      <table id="{{ scan_id }}" data-filter="true">
+        <thead>
+          <tr>
+            <th>Timestamp</th><th>Item Number</th><th>Format</th>
+            <th>Mode</th><th>Process</th><th>Event ID</th><th>Return State</th>
+          </tr>
+          <tr class="filter-row">
+            <th><input class="col-filter" type="text" placeholder="Date…"/></th>
+            <th><input class="col-filter" type="text" placeholder="Item…"/></th>
+            <th><input class="col-filter" type="text" placeholder="Format…"/></th>
+            <th><input class="col-filter" type="text" placeholder="scan/manual"/></th>
+            <th><input class="col-filter" type="text" placeholder="Process…"/></th>
+            <th><input class="col-filter" type="text" placeholder="GUID…"/></th>
+            <th><input class="col-filter" type="text" placeholder="State…"/></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for se in lf.scan_events %}
+        <tr>
+          <td class="text-sm text-muted">{{ se.raw_ts }}</td>
+          <td><strong>{{ se.item_number }}</strong></td>
+          <td class="text-sm">{{ se.barcode_format }}</td>
+          <td><span class="badge badge-{{ se.entry_mode }}">{{ se.entry_mode }}</span></td>
+          <td class="text-sm">{{ se.process }}</td>
+          <td class="text-sm text-muted" style="font-family:monospace">{{ se.event_id or '—' }}</td>
+          <td>{% if se.return_state %}<span class="badge badge-grey">{{ se.return_state }}</span>{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if lf.exception_events %}
+    <div class="section-tag">⚠ Exceptions (<span id="{{ exc_id }}-count">{{ lf.exception_events | length }}</span>)</div>
+    <div class="table-wrap">
+      <table id="{{ exc_id }}" data-filter="true">
+        <thead>
+          <tr><th>Timestamp</th><th>Type</th><th>Message</th></tr>
+          <tr class="filter-row">
+            <th><input class="col-filter" type="text" placeholder="Date…"/></th>
+            <th><input class="col-filter" type="text" placeholder="Type…"/></th>
+            <th><input class="col-filter" type="text" placeholder="Message…"/></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for ex in lf.exception_events %}
+        <tr>
+          <td class="text-sm text-muted">{{ ex.raw_ts }}</td>
+          <td><span class="badge badge-red">{{ ex.exception_type }}</span></td>
+          <td class="text-sm">{{ ex.message[:140] if ex.message else '' }}{% if ex.message and ex.message|length > 140 %}…{% endif %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if lf.master_sync_events %}
+    <div class="section-tag">🔄 Master Data Syncs (<span id="{{ sync_id }}-count">{{ lf.master_sync_events | length }}</span>)</div>
+    <div class="table-wrap">
+      <table id="{{ sync_id }}" data-filter="true">
+        <thead>
+          <tr><th>Timestamp</th><th>Info</th></tr>
+          <tr class="filter-row">
+            <th><input class="col-filter" type="text" placeholder="Date…"/></th>
+            <th><input class="col-filter" type="text" placeholder="Filter info…"/></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for ms in lf.master_sync_events %}
+        <tr>
+          <td class="text-sm text-muted">{{ ms.raw_ts }}</td>
+          <td class="text-sm">{{ ms.info }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+  </div>
+  {% endfor %}
+
+</div>
+
+<div class="page-footer">Posten Bring · <strong>ProdApp Log Analyzer</strong></div>
+
+<script>
+  document.getElementById('navToggle').addEventListener('click', () =>
+    document.getElementById('navLinks').classList.toggle('open'));
+</script>
+</body>
+</html>
+
+    .success-banner {
+      background: linear-gradient(135deg, #14532d, #166534);
+      border-radius: var(--radius);
+      padding: 26px 28px;
+      display: flex; align-items: center; gap: 18px;
+      margin-bottom: 20px;
+      color: #fff;
+    }
+    .success-icon { font-size: 38px; flex-shrink: 0; }
+    .success-title { font-size: 20px; font-weight: 800; }
+    .success-sub   { font-size: 13.5px; opacity: .8; margin-top: 3px; }
+    .meta-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 2px; font-size: 13.5px;
+    }
+    .meta-row {
+      display: flex; gap: 8px; padding: 9px 12px;
+      border-radius: var(--radius-sm); background: var(--grey-1);
+      align-items: flex-start;
+    }
+    .meta-key   { font-weight: 700; color: var(--text-muted); min-width: 110px; flex-shrink: 0; }
+    .meta-val   { color: var(--text); }
+    @media (max-width: 600px) { .meta-grid { grid-template-columns: 1fr; } }
+    .section-tag {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 14px; font-weight: 700; color: var(--text-mid);
+      margin: 18px 0 10px;
+      padding-left: 10px;
+      border-left: 3px solid var(--red);
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="/">
+    <div class="nav-logo">PB</div>
+    <div class="nav-brand-text">
+      <span class="brand-top">Posten Bring</span>
+      <span class="brand-bot">Log Analyzer</span>
+    </div>
+  </a>
+  <div class="nav-spacer"></div>
+  <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="nav-links" id="navLinks">
+    <a href="/upload"  class="nav-link active">📤 Upload</a>
+    <a href="/search"  class="nav-link">🔎 Search</a>
+    <a href="/uploads" class="nav-link">📂 All Uploads</a>
+    <a href="/soti/"   class="nav-link">📡 SOTI MobiControl</a>
+  </div>
+</nav>
+
+<div class="container-md">
+
+  <div class="breadcrumb">
+    <a href="/">Home</a> › <a href="/upload">Upload</a> › <span>Success</span>
+  </div>
+
+  <div class="success-banner">
+    <div class="success-icon">✅</div>
+    <div>
+      <div class="success-title">Upload Successful</div>
+      <div class="success-sub">{{ upload.filename }} has been parsed and indexed.</div>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:10px;flex-wrap:wrap">
+      <a class="btn btn-ghost btn-sm" href="/uploads/{{ upload.id }}/download">⬇ Download</a>
+      <a class="btn btn-ghost btn-sm" href="/search">🔎 Search Events</a>
+      <a class="btn btn-ghost btn-sm" href="/upload">Upload Another</a>
+    </div>
   </div>
 
   {% for lf in log_files %}
   <div class="card">
-    <h2>📄 {{ lf.filename }}</h2>
-    <div class="meta-grid">
-      <div class="meta-item"><span class="meta-label">Device ID:</span>
+    <div class="card-header">
+      <div>
+        <div class="card-title">📄 {{ lf.filename }}</div>
         {% if lf.device_id %}
-          <a href="/devices/{{ lf.device_id }}">{{ lf.device_id }}</a>
-        {% else %}—{% endif %}
+        <div class="card-subtitle">Device: <a href="/devices/{{ lf.device_id }}">{{ lf.device_id }}</a></div>
+        {% endif %}
       </div>
-      <div class="meta-item"><span class="meta-label">Environment:</span>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         {% if lf.environment %}
           <span class="badge badge-{{ lf.environment | lower }}">{{ lf.environment }}</span>
-        {% else %}—{% endif %}
+        {% endif %}
+        <span class="badge badge-scan">{{ lf.scan_events | length }} scans</span>
+        {% if lf.exception_events | length > 0 %}
+        <span class="badge badge-red">{{ lf.exception_events | length }} exceptions</span>
+        {% endif %}
+        <a class="btn btn-secondary btn-sm" href="/logfiles/{{ lf.id }}/download">⬇ Log File</a>
       </div>
-      <div class="meta-item"><span class="meta-label">Package:</span> {{ lf.package_name or '—' }}</div>
-      <div class="meta-item"><span class="meta-label">Username:</span> {{ lf.username or '—' }}</div>
-      <div class="meta-item"><span class="meta-label">App Versions:</span>
-        {% for av in lf.app_versions %}{{ av.version }}{% if not loop.last %}, {% endif %}{% endfor %}
+    </div>
+
+    <div class="meta-grid">
+      <div class="meta-row"><span class="meta-key">Package</span><span class="meta-val">{{ lf.package_name or '—' }}</span></div>
+      <div class="meta-row"><span class="meta-key">Username</span><span class="meta-val">{{ lf.username or '—' }}</span></div>
+      <div class="meta-row">
+        <span class="meta-key">App Versions</span>
+        <span class="meta-val">{% for av in lf.app_versions %}{{ av.version }}{% if not loop.last %}, {% endif %}{% else %}—{% endfor %}</span>
       </div>
-      <div class="meta-item"><span class="meta-label">Emails:</span>
-        {% for ue in lf.emails %}{{ ue.email }}{% if not loop.last %}, {% endif %}{% endfor %}
+      <div class="meta-row">
+        <span class="meta-key">Emails</span>
+        <span class="meta-val">{% for ue in lf.emails %}{{ ue.email }}{% if not loop.last %}, {% endif %}{% else %}—{% endfor %}</span>
       </div>
-      <div class="meta-item"><span class="meta-label">Scan Events:</span> {{ lf.scan_events | length }}</div>
-      <div class="meta-item"><span class="meta-label">Exceptions:</span> {{ lf.exception_events | length }}</div>
     </div>
 
     {% if lf.scan_events %}
-    <br/>
-    <h2>Scan Events</h2>
-    <table>
-      <thead><tr><th>Timestamp</th><th>Item Number</th><th>Format</th><th>Mode</th><th>Process</th></tr></thead>
-      <tbody>
-      {% for se in lf.scan_events %}
-      <tr>
-        <td>{{ se.raw_ts }}</td>
-        <td>{{ se.item_number }}</td>
-        <td>{{ se.barcode_format }}</td>
-        <td><span class="badge badge-{{ se.entry_mode }}">{{ se.entry_mode }}</span></td>
-        <td>{{ se.process }}</td>
-      </tr>
-      {% endfor %}
-      </tbody>
-    </table>
+    <div class="section-tag">📦 Scan Events ({{ lf.scan_events | length }})</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Timestamp</th><th>Item Number</th><th>Format</th><th>Mode</th><th>Process</th></tr></thead>
+        <tbody>
+        {% for se in lf.scan_events %}
+        <tr>
+          <td>{{ se.raw_ts }}</td>
+          <td><strong>{{ se.item_number }}</strong></td>
+          <td>{{ se.barcode_format }}</td>
+          <td><span class="badge badge-{{ se.entry_mode }}">{{ se.entry_mode }}</span></td>
+          <td>{{ se.process }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
     {% endif %}
 
     {% if lf.exception_events %}
-    <br/>
-    <h2>Exceptions</h2>
-    <table>
-      <thead><tr><th>Timestamp</th><th>Type</th><th>Message</th></tr></thead>
-      <tbody>
-      {% for ex in lf.exception_events %}
-      <tr>
-        <td>{{ ex.raw_ts }}</td>
-        <td>{{ ex.exception_type }}</td>
-        <td>{{ ex.message[:120] }}{% if ex.message|length > 120 %}…{% endif %}</td>
-      </tr>
-      {% endfor %}
-      </tbody>
-    </table>
+    <div class="section-tag">⚠ Exceptions ({{ lf.exception_events | length }})</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Timestamp</th><th>Type</th><th>Message</th></tr></thead>
+        <tbody>
+        {% for ex in lf.exception_events %}
+        <tr>
+          <td>{{ ex.raw_ts }}</td>
+          <td><span class="badge badge-red">{{ ex.exception_type }}</span></td>
+          <td>{{ ex.message[:140] if ex.message else '' }}{% if ex.message and ex.message|length > 140 %}…{% endif %}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
     {% endif %}
-
-    <br/>
-    <a class="btn btn-secondary" href="/logfiles/{{ lf.id }}/download">⬇ Download Log File</a>
   </div>
   {% endfor %}
+
 </div>
+
+<div class="page-footer">Posten Bring · <strong>ProdApp Log Analyzer</strong></div>
+
+<script>
+  document.getElementById('navToggle').addEventListener('click', () =>
+    document.getElementById('navLinks').classList.toggle('open'));
+</script>
 </body>
 </html>

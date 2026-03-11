@@ -3,70 +3,247 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Uploads – ProdApp Log Analyzer</title>
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-           background: #f0f2f5; color: #333; }
-    nav { background: #1a1a2e; padding: 12px 24px; display: flex; align-items: center; gap: 24px; }
-    nav a { color: #e0e0e0; text-decoration: none; font-size: 14px; }
-    nav a:hover { color: #fff; }
-    nav .brand { color: #fff; font-weight: 700; font-size: 18px; text-decoration: none; }
-    .container { max-width: 900px; margin: 30px auto; padding: 0 16px; }
-    .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1); padding: 24px; margin-bottom: 20px; }
-    h1 { font-size: 22px; margin-bottom: 16px; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; }
-    th { background: #f8f9fa; font-weight: 600; }
-    tr:hover { background: #f9fafb; }
-    .btn { display: inline-block; padding: 5px 12px; border-radius: 5px; font-size: 12px; text-decoration: none; }
-    .btn-secondary { background: #e5e7eb; color: #374151; }
-    .empty { color: #888; text-align: center; padding: 30px; }
-    a { color: #4361ee; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-  </style>
+  <title>All Uploads — ProdApp Log Analyzer</title>
+  <link rel="stylesheet" href="/static/pb.css"/>
+  <script src="/static/pb.js" defer></script>
 </head>
 <body>
+
 <nav>
-  <a class="brand" href="/">🔍 ProdApp Log Analyzer</a>
-  <a href="/upload">Upload</a>
-  <a href="/search">Search</a>
-  <a href="/uploads">All Uploads</a>
+  <a class="nav-brand" href="/">
+    <div class="nav-logo">PB</div>
+    <div class="nav-brand-text">
+      <span class="brand-top">Posten Bring</span>
+      <span class="brand-bot">Log Analyzer</span>
+    </div>
+  </a>
+  <div class="nav-spacer"></div>
+  <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="nav-links" id="navLinks">
+    <a href="/upload"  class="nav-link">📤 Upload</a>
+    <a href="/search"  class="nav-link">🔎 Search</a>
+    <a href="/uploads" class="nav-link active">📂 All Uploads</a>
+    <a href="/soti/"   class="nav-link">📡 SOTI MobiControl</a>
+    {% if user %}<span class="nav-link text-muted text-sm" style="cursor:default">👤 {{ user.name }}</span>{% endif %}
+    {% if sso_enabled %}<a href="/auth/logout" class="nav-link" style="color:#F87171">Sign out</a>{% endif %}
+  </div>
 </nav>
+
 <div class="container">
-  <div class="card">
-    <h1>All Uploads</h1>
-    {% if uploads %}
-    <table>
-      <thead>
-        <tr><th>#</th><th>Filename</th><th>Uploaded At</th><th>Size</th><th>Log Files</th><th>Actions</th></tr>
-      </thead>
-      <tbody>
-      {% for u in uploads %}
-      <tr>
-        <td>{{ u.id }}</td>
-        <td>{{ u.filename }}</td>
-        <td>{{ u.uploaded_at.strftime('%Y-%m-%d %H:%M') if u.uploaded_at else '—' }}</td>
-        <td>{% if u.file_size %}{{ (u.file_size / 1024) | round(1) }} KB{% else %}—{% endif %}</td>
-        <td>
-          {% for lf in u.log_files %}
-          <div>
-            {% if lf.device_id %}<a href="/devices/{{ lf.device_id }}">{{ lf.device_id }}</a>{% endif %}
-            {{ lf.filename }}
-          </div>
+
+  <div class="breadcrumb"><a href="/">Home</a> › <span>All Uploads</span></div>
+
+  <div class="card-header" style="margin-bottom:16px">
+    <div>
+      <div class="page-title">All Uploads</div>
+      <div class="page-desc" style="margin-bottom:0">History of all uploaded log files.</div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <!-- Package filter -->
+      {% if all_pkgs %}
+      <form method="get" action="/uploads" style="display:flex;gap:6px;align-items:center">
+        <select name="package" onchange="this.form.submit()" style="font-size:13px;padding:7px 10px;border-radius:6px;border:1.5px solid var(--grey-2)">
+          <option value="">All Packages</option>
+          {% for pkg in all_pkgs %}
+          <option value="{{ pkg }}" {% if pkg == pkg_filter %}selected{% endif %}>{{ pkg }}</option>
           {% endfor %}
-        </td>
-        <td>
-          <a class="btn btn-secondary" href="/uploads/{{ u.id }}/download">⬇ Download</a>
-        </td>
-      </tr>
-      {% endfor %}
-      </tbody>
-    </table>
+        </select>
+        {% if pkg_filter %}<a href="/uploads" class="btn btn-ghost btn-sm" style="background:var(--grey-2);color:var(--dark)">✕ Clear</a>{% endif %}
+      </form>
+      {% endif %}
+      <a class="btn btn-primary" href="/upload">📤 Upload New</a>
+    </div>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden">
+    {% if uploads %}
+    <div style="padding:12px 20px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--grey-2)">
+      <span class="text-muted text-sm" id="uploads-table-count">{{ uploads | length }} upload{{ 's' if uploads | length != 1 else '' }}</span>
+    </div>
+    <div class="table-wrap">
+      <table id="uploads-table" data-filter="true">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Filename</th>
+            <th>Package / Category</th>
+            <th>Env</th>
+            <th>Device(s)</th>
+            <th>Uploaded</th>
+            <th>Size</th>
+            <th style="text-align:right">Actions</th>
+          </tr>
+          <tr class="filter-row">
+            <th></th>
+            <th><input class="col-filter" type="text" placeholder="Filter filename…"/></th>
+            <th><input class="col-filter" type="text" placeholder="Filter package…"/></th>
+            <th><input class="col-filter" type="text" placeholder="QA / PROD"/></th>
+            <th><input class="col-filter" type="text" placeholder="Filter device…"/></th>
+            <th><input class="col-filter" type="text" placeholder="Filter date…"/></th>
+            <th></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for u in uploads %}
+        {%- set pkgs     = u.log_files | map(attribute='package_name') | select | unique | list -%}
+        {%- set envs     = u.log_files | map(attribute='environment')  | select | unique | list -%}
+        {%- set dev_ids  = u.log_files | map(attribute='device_id')    | select | unique | list -%}
+        <tr>
+          <td class="text-muted text-sm">{{ u.id }}</td>
+          <td>
+            <a href="/uploads/{{ u.id }}" class="font-bold" style="color:var(--dark)">{{ u.filename }}</a>
+            <div class="text-sm text-muted" style="margin-top:2px">{{ u.log_files | length }} file{{ 's' if u.log_files | length != 1 else '' }}</div>
+          </td>
+          <td>
+            {% for pkg in pkgs %}
+            <span class="badge badge-grey" style="margin:1px 2px;font-size:11px">{{ pkg }}</span>
+            {% else %}<span class="text-muted text-sm">—</span>{% endfor %}
+          </td>
+          <td>
+            {% for env in envs %}
+            <span class="badge badge-{{ env | lower }}">{{ env }}</span>
+            {% else %}<span class="text-muted text-sm">—</span>{% endfor %}
+          </td>
+          <td>
+            {% for did in dev_ids %}
+            <a href="/devices/{{ did }}" style="display:block;font-size:12.5px;font-weight:600">{{ did }}</a>
+            {% else %}<span class="text-muted text-sm">—</span>{% endfor %}
+          </td>
+          <td class="text-sm text-muted">{{ u.uploaded_at.strftime('%d %b %Y, %H:%M') if u.uploaded_at else '—' }}</td>
+          <td class="text-sm">{% if u.file_size %}{{ (u.file_size / 1024) | round(1) }} KB{% else %}—{% endif %}</td>
+          <td style="text-align:right;white-space:nowrap">
+            <a class="btn btn-secondary btn-sm" href="/uploads/{{ u.id }}/download" title="Download original">⬇</a>
+            <a class="btn btn-secondary btn-sm" href="/uploads/{{ u.id }}" title="View details">👁</a>
+            <form method="post" action="/uploads/{{ u.id }}/reparse" style="display:inline">
+              <button class="btn btn-secondary btn-sm" type="submit" title="Reparse" onclick="return confirm('Re-parse upload #{{ u.id }}? All existing data for this upload will be replaced.')">🔄</button>
+            </form>
+            <form method="post" action="/uploads/{{ u.id }}/delete" style="display:inline">
+              <button class="btn btn-danger btn-sm" type="submit" title="Delete" onclick="return confirm('Permanently delete upload #{{ u.id }}: {{ u.filename }}? This cannot be undone.')">🗑</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
     {% else %}
-    <div class="empty">No uploads yet. <a href="/upload">Upload a log file</a> to get started.</div>
+    <div class="empty-state">
+      <div class="empty-icon">📂</div>
+      <p>No uploads yet.<br/><a href="/upload">Upload a log file</a> to get started.</p>
+    </div>
     {% endif %}
   </div>
+
 </div>
+
+<div class="page-footer">Posten Bring · <strong>ProdApp Log Analyzer</strong></div>
+
+<script>
+  document.getElementById('navToggle').addEventListener('click', () =>
+    document.getElementById('navLinks').classList.toggle('open'));
+</script>
+</body>
+</html>
+
+
+<nav>
+  <a class="nav-brand" href="/">
+    <div class="nav-logo">PB</div>
+    <div class="nav-brand-text">
+      <span class="brand-top">Posten Bring</span>
+      <span class="brand-bot">Log Analyzer</span>
+    </div>
+  </a>
+  <div class="nav-spacer"></div>
+  <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="nav-links" id="navLinks">
+    <a href="/upload"  class="nav-link">📤 Upload</a>
+    <a href="/search"  class="nav-link">🔎 Search</a>
+    <a href="/uploads" class="nav-link active">📂 All Uploads</a>
+    <a href="/soti/"   class="nav-link">📡 SOTI MobiControl</a>
+  </div>
+</nav>
+
+<div class="container-md">
+
+  <div class="breadcrumb"><a href="/">Home</a> › <span>All Uploads</span></div>
+
+  <div class="card-header" style="margin-bottom:16px">
+    <div>
+      <div class="page-title">All Uploads</div>
+      <div class="page-desc" style="margin-bottom:0">History of all uploaded log files.</div>
+    </div>
+    <a class="btn btn-primary" href="/upload">📤 Upload New</a>
+  </div>
+
+  <div class="card" style="padding:0;overflow:hidden">
+    {% if uploads %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Filename</th>
+            <th>Uploaded</th>
+            <th>Size</th>
+            <th>Devices</th>
+            <th style="text-align:right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for u in uploads %}
+        <tr>
+          <td class="text-muted text-sm">{{ u.id }}</td>
+          <td>
+            <div class="font-bold">{{ u.filename }}</div>
+            {% if u.log_files %}
+            <div class="text-sm text-muted" style="margin-top:3px">
+              {{ u.log_files | length }} log file{{ 's' if u.log_files | length != 1 else '' }}
+            </div>
+            {% endif %}
+          </td>
+          <td class="text-sm text-muted">{{ u.uploaded_at.strftime('%d %b %Y, %H:%M') if u.uploaded_at else '—' }}</td>
+          <td class="text-sm">{% if u.file_size %}{{ (u.file_size / 1024) | round(1) }} KB{% else %}—{% endif %}</td>
+          <td>
+            {% for lf in u.log_files %}
+            {% if lf.device_id %}
+            <div style="margin:2px 0">
+              <a href="/devices/{{ lf.device_id }}" style="font-size:12.5px;font-weight:600">{{ lf.device_id }}</a>
+              {% if lf.environment %}<span class="badge badge-{{ lf.environment | lower }}" style="margin-left:4px">{{ lf.environment }}</span>{% endif %}
+            </div>
+            {% endif %}
+            {% else %}
+            <span class="text-muted text-sm">—</span>
+            {% endfor %}
+          </td>
+          <td style="text-align:right;white-space:nowrap">
+            <a class="btn btn-secondary btn-sm" href="/uploads/{{ u.id }}/download">⬇ Download</a>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">📂</div>
+      <p>No uploads yet.<br/><a href="/upload">Upload a log file</a> to get started.</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<div class="page-footer">Posten Bring · <strong>ProdApp Log Analyzer</strong></div>
+
+<script>
+  document.getElementById('navToggle').addEventListener('click', () =>
+    document.getElementById('navLinks').classList.toggle('open'));
+</script>
 </body>
 </html>

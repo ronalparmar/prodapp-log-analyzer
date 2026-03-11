@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SOTI MobiControl — ProdApp Log Analyzer</title>
+  <link rel="stylesheet" href="/static/pb.css"/>
+  <style>
+    /* ── SOTI-specific overrides (palette updated to Posten Bring) ── */
+    .container { max-width: 1340px; }
+
+    /* ── Status Bar ── */
+    .status-bar { display: flex; align-items: center; justify-content: space-between;
+                  background: var(--white); border-radius: var(--radius); padding: 14px 20px;
+                  margin-bottom: 18px; box-shadow: var(--shadow-sm);
+                  border: 1px solid var(--grey-2); flex-wrap: wrap; gap: 10px; }
+    .status-text { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .dot-red    { background: #EF4444; }
+    .dot-green  { background: #22C55E; }
+    .dot-yellow { background: #EAB308; animation: blink 1.4s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+    /* ── Workspace layout ── */
+    .workspace { display: grid; grid-template-columns: 290px 1fr; gap: 18px; align-items: start; }
+    @media(max-width: 900px){ .workspace { grid-template-columns: 1fr; } }
+
+    /* ── Section heading ── */
+    .section-h2 { font-size: 16px; font-weight: 700; color: var(--dark); margin-bottom: 14px;
+                  padding-left: 10px; border-left: 3px solid var(--red); }
+
+    /* ── Folder Tree ── */
+    .tree-root { list-style: none; }
+    .tree-root ul { list-style: none; padding-left: 16px; }
+    .tree-root ul.hidden { display: none; }
+    .tree-item {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 8px; border-radius: 5px; cursor: pointer;
+      font-size: 13px; user-select: none; }
+    .tree-item:hover { background: var(--red-light); }
+    .tree-item.selected { background: var(--red-light); color: var(--red-dark); font-weight: 600; }
+    .tree-toggle { width: 14px; text-align: center; font-size: 10px; color: var(--grey-4); flex-shrink: 0; }
+    .tree-icon   { font-size: 14px; flex-shrink: 0; }
+    .tree-label  { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tree-count  { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+
+    /* ── Device List ── */
+    .device-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-bottom: 1px solid var(--grey-2); font-size: 13px; }
+    .device-item:last-child { border-bottom: none; }
+    .device-item:hover { background: var(--grey-1); }
+    .device-item input[type=checkbox] { width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; accent-color: var(--red); }
+    .device-online  { width: 8px; height: 8px; border-radius: 50%; background: #22C55E; flex-shrink: 0; }
+    .device-offline { width: 8px; height: 8px; border-radius: 50%; background: var(--grey-3); flex-shrink: 0; }
+    .device-name    { font-weight: 600; }
+    .device-meta    { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+    .select-all-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; border-bottom: 1px solid var(--grey-2); font-size: 13px; }
+    .select-all-row input { accent-color: var(--red); }
+
+    /* ── Search results ── */
+    .result-card { border: 1px solid var(--grey-2); border-radius: var(--radius-sm); margin-bottom: 10px; overflow: hidden; }
+    .result-header {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 10px 14px; background: var(--grey-1); font-size: 13px;
+      font-weight: 600; cursor: pointer; border-bottom: 1px solid var(--grey-2); }
+    .result-header:hover { background: var(--grey-2); }
+    .result-body { padding: 12px 14px; display: none; }
+    .result-body.open { display: block; }
+    .match-file { font-weight: 700; color: var(--red-dark); margin: 10px 0 4px; word-break: break-all; font-size: 12px; }
+    .match-file:first-child { margin-top: 0; }
+    .match-line {
+      font-family: "SF Mono", "Fira Code", monospace; font-size: 12px;
+      background: var(--grey-1); padding: 3px 8px; margin: 2px 0;
+      border-left: 3px solid var(--red); border-radius: 0 3px 3px 0; word-break: break-all; }
+    .match-line mark { background: #FEF08A; padding: 0 1px; border-radius: 2px; }
+    .job-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px;
+                 padding: 2px 9px; border-radius: 10px; font-weight: 600; flex-shrink: 0; }
+    .badge-pending  { background: #FEF9C3; color: #854D0E; }
+    .badge-done     { background: #DCFCE7; color: #166534; }
+    .badge-error    { background: var(--red-light); color: #991B1B; }
+    .badge-nomatch  { background: var(--grey-2); color: var(--text-muted); }
+
+    .empty { color: var(--text-muted); font-size: 13px; padding: 24px; text-align: center; }
+    .search-bar { display: flex; gap: 10px; align-items: flex-end; }
+    .search-bar .field { flex: 1; margin-bottom: 0; }
+    code { background: var(--grey-1); padding: 1px 5px; border-radius: 3px; font-size: 12px; border: 1px solid var(--grey-2); }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="/">
+    <div class="nav-logo">PB</div>
+    <div class="nav-brand-text">
+      <span class="brand-top">Posten Bring</span>
+      <span class="brand-bot">Log Analyzer</span>
+    </div>
+  </a>
+  <div class="nav-spacer"></div>
+  <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="nav-links" id="navLinks">
+    <a href="/upload"  class="nav-link">📤 Upload</a>
+    <a href="/search"  class="nav-link">🔎 Search</a>
+    <a href="/uploads" class="nav-link">📂 All Uploads</a>
+    <a href="/soti/"   class="nav-link active">📡 SOTI MobiControl</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- ── Status bar ── -->
+  <div class="status-bar">
+    <div class="status-text">
+      <span class="dot" id="dot"></span>
+      <span id="conn-label">Not connected to SOTI MobiControl</span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-secondary" id="btn-toggle-login" onclick="toggleLoginPanel()">Connect</button>
+      <button class="btn btn-danger"    id="btn-logout"       onclick="doLogout()" style="display:none">Disconnect</button>
+    </div>
+  </div>
+
+  <!-- ── Login panel ── -->
+  <div class="card" id="login-panel" style="display:none">
+    <div class="section-h2">Connect to SOTI MobiControl</div>
+    <div id="login-error" class="alert alert-error" style="display:none"></div>
+    <div style="max-width:520px">
+      <div class="field">
+        <label>Tenant URL</label>
+        <input id="f-tenant" type="url" value="https://ponsmart.datema.se" placeholder="https://your-tenant.soticloud.com" autocomplete="url"/>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label>Username</label>
+          <input id="f-user" type="text" placeholder="API username" autocomplete="username"/>
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input id="f-pass" type="password" placeholder="Password" autocomplete="current-password"/>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="field">
+          <label>Client ID</label>
+          <input id="f-cid" type="text" placeholder="e.g. shopapp-log-collector"/>
+        </div>
+        <div class="field">
+          <label>Client Secret</label>
+          <input id="f-csec" type="password" placeholder="Client secret"/>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="btn-connect" onclick="doLogin()">Connect to SOTI</button>
+    </div>
+  </div>
+
+  <!-- ── Workspace (shown after login) ── -->
+  <div id="workspace" style="display:none">
+    <div class="workspace">
+
+      <!-- Sidebar: folder tree -->
+      <div>
+        <div class="card" style="padding:16px">
+          <div class="section-h2" style="margin-bottom:10px">📁 Device Groups</div>
+          <div id="folder-tree"><div class="empty">Loading groups…</div></div>
+        </div>
+      </div>
+
+      <!-- Main panel -->
+      <div>
+
+        <!-- Device list -->
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div class="section-h2" style="margin:0">📱 Devices — <span id="group-name" style="color:var(--red)">select a group</span></div>
+            <span id="device-count" style="font-size:12px;color:#888"></span>
+          </div>
+          <div id="device-list"><div class="empty">Select a device group on the left.</div></div>
+        </div>
+
+        <!-- Search -->
+        <div class="card">
+          <div class="section-h2">🔍 Search Device Logs</div>
+          <div class="alert alert-info">
+            Sends a shell script to each selected device to grep
+            <code>/sdcard/com.postenbring.*/logs/*.txt</code> for the query.
+            Results are fetched by polling the SOTI job queue.<br/>
+            <strong>Only letters, digits, dots, hyphens and underscores are accepted as query.</strong>
+          </div>
+          <div id="search-error" class="alert alert-error" style="display:none"></div>
+          <div class="search-bar" style="margin-bottom:16px">
+            <div class="field">
+              <label>Item number / barcode / device ID</label>
+              <input id="search-input" type="text" placeholder="e.g. 00370438104439901228"/>
+            </div>
+            <button class="btn btn-primary" id="btn-search" onclick="doSearch()">Search Devices</button>
+          </div>
+          <div id="search-results"></div>
+        </div>
+
+      </div><!-- /main -->
+    </div><!-- /workspace grid -->
+  </div><!-- /workspace -->
+
+</div><!-- /container -->
+
+<div class="page-footer">Posten Bring · <strong>ProdApp Log Analyzer</strong></div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   State
+═══════════════════════════════════════════════ */
+let allDevices  = [];
+let pollTimers  = {};   // deviceId → intervalId
+
+/* ═══════════════════════════════════════════════
+   Utilities
+═══════════════════════════════════════════════ */
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+                        .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+/* ═══════════════════════════════════════════════
+   Login / logout
+═══════════════════════════════════════════════ */
+function toggleLoginPanel() {
+  const p = document.getElementById('login-panel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+
+async function doLogin() {
+  const tenant = document.getElementById('f-tenant').value.trim();
+  const user   = document.getElementById('f-user').value.trim();
+  const pass   = document.getElementById('f-pass').value;
+  const cid    = document.getElementById('f-cid').value.trim();
+  const csec   = document.getElementById('f-csec').value;
+  const errEl  = document.getElementById('login-error');
+  const btn    = document.getElementById('btn-connect');
+
+  errEl.style.display = 'none';
+  if (!tenant || !user || !pass || !cid || !csec) {
+    errEl.textContent = 'All fields are required.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Connecting…';
+
+  const body = new FormData();
+  body.append('tenant_url',    tenant);
+  body.append('username',      user);
+  body.append('password',      pass);
+  body.append('client_id',     cid);
+  body.append('client_secret', csec);
+
+  try {
+    const r    = await fetch('/soti/login', { method: 'POST', body });
+    const data = await r.json();
+    if (!r.ok || data.error) {
+      errEl.textContent = data.error || 'Login failed.';
+      errEl.style.display = 'block';
+    } else {
+      onConnected(tenant);
+    }
+  } catch (e) {
+    errEl.textContent = 'Network error: ' + e.message;
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Connect';
+  }
+}
+
+function onConnected(tenantUrl) {
+  let host = tenantUrl;
+  try { host = new URL(tenantUrl).hostname; } catch(_) {}
+  document.getElementById('dot').className = 'dot dot-green';
+  document.getElementById('conn-label').textContent = 'Connected to ' + host;
+  document.getElementById('btn-toggle-login').style.display = 'none';
+  document.getElementById('btn-logout').style.display = '';
+  document.getElementById('login-panel').style.display = 'none';
+  document.getElementById('workspace').style.display = 'block';
+  loadFolderTree();
+}
+
+async function doLogout() {
+  await fetch('/soti/logout', { method: 'POST' });
+  document.getElementById('dot').className = 'dot dot-red';
+  document.getElementById('conn-label').textContent = 'Not connected to SOTI MobiControl';
+  document.getElementById('btn-toggle-login').style.display = '';
+  document.getElementById('btn-toggle-login').textContent = 'Connect';
+  document.getElementById('btn-logout').style.display = 'none';
+  document.getElementById('workspace').style.display = 'none';
+}
+
+/* ═══════════════════════════════════════════════
+   Folder Tree
+═══════════════════════════════════════════════ */
+async function loadFolderTree() {
+  const el = document.getElementById('folder-tree');
+  el.innerHTML = '<div class="empty">Loading…</div>';
+  try {
+    const r    = await fetch('/soti/folders');
+    const data = await r.json();
+    if (data.error) { el.innerHTML = `<div class="alert alert-error">${esc(data.error)}</div>`; return; }
+    const groups = Array.isArray(data) ? data : [data];
+    el.innerHTML = '';
+    el.appendChild(buildTree(groups));
+  } catch (e) {
+    el.innerHTML = `<div class="alert alert-error">Failed to load groups: ${esc(e.message)}</div>`;
+  }
+}
+
+function buildTree(groups) {
+  const ul = document.createElement('ul');
+  ul.className = 'tree-root';
+  for (const g of groups) {
+    ul.appendChild(buildTreeNode(g));
+  }
+  return ul;
+}
+
+function buildTreeNode(g) {
+  const name  = g.Name       || g.name       || g.GroupName  || 'Group';
+  const path  = g.Path       || g.path       || g.GroupPath  || name;
+  const count = g.NumberOfDevices || g.DeviceCount || 0;
+  const subs  = g.SubGroups  || g.subGroups  || g.ChildGroups || [];
+
+  const li   = document.createElement('li');
+  const row  = document.createElement('div');
+  row.className = 'tree-item';
+  row.dataset.path = path;
+  row.dataset.name = name;
+
+  const toggle = document.createElement('span');
+  toggle.className = 'tree-toggle';
+  toggle.textContent = subs.length ? '▶' : '';
+
+  const icon  = document.createElement('span');
+  icon.className = 'tree-icon';
+  icon.textContent = '📁';
+
+  const label = document.createElement('span');
+  label.className = 'tree-label';
+  label.textContent = name;
+
+  const cnt = document.createElement('span');
+  cnt.className = 'tree-count';
+  if (count > 0) cnt.textContent = count;
+
+  row.append(toggle, icon, label, cnt);
+  li.appendChild(row);
+
+  if (subs.length) {
+    const childUl = buildTree(subs);
+    childUl.classList.add('hidden');
+    li.appendChild(childUl);
+
+    const expand = () => {
+      const open = !childUl.classList.contains('hidden');
+      childUl.classList.toggle('hidden', open);
+      toggle.textContent = open ? '▶' : '▼';
+      icon.textContent   = open ? '📁' : '📂';
+    };
+    toggle.addEventListener('click', e => { e.stopPropagation(); expand(); });
+  }
+
+  row.addEventListener('click', () => selectGroup(path, name, row));
+  return li;
+}
+
+function selectGroup(path, name, rowEl) {
+  document.querySelectorAll('.tree-item.selected').forEach(el => el.classList.remove('selected'));
+  rowEl.classList.add('selected');
+  document.getElementById('group-name').textContent = name;
+  loadDevices(path);
+}
+
+/* ═══════════════════════════════════════════════
+   Device list
+═══════════════════════════════════════════════ */
+async function loadDevices(groupPath) {
+  const el    = document.getElementById('device-list');
+  const badge = document.getElementById('device-count');
+  el.innerHTML = '<div class="empty">Loading devices…</div>';
+  badge.textContent = '';
+  allDevices = [];
+
+  try {
+    const r    = await fetch('/soti/devices?group_path=' + encodeURIComponent(groupPath));
+    const data = await r.json();
+    if (data.error) { el.innerHTML = `<div class="alert alert-error">${esc(data.error)}</div>`; return; }
+    allDevices = Array.isArray(data) ? data : (data.Devices || data.devices || []);
+    renderDevices(allDevices);
+    badge.textContent = allDevices.length + ' device' + (allDevices.length !== 1 ? 's' : '');
+  } catch (e) {
+    el.innerHTML = `<div class="alert alert-error">Failed to load devices: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderDevices(devices) {
+  const el = document.getElementById('device-list');
+  if (!devices.length) {
+    el.innerHTML = '<div class="empty">No devices in this group.</div>';
+    return;
+  }
+
+  let html = `<div class="select-all-row">
+    <input type="checkbox" id="chk-all" onchange="toggleAll(this.checked)"/>
+    <label for="chk-all" style="cursor:pointer">Select all</label>
+  </div>`;
+
+  for (const d of devices) {
+    const id     = d.DeviceId || d.DeviceID || d.deviceId || d.Id || '';
+    const name   = d.DeviceName || d.Name || id;
+    const online = d.IsOnline === true || d.Status === 'Online';
+    const model  = [d.DeviceManufacturer || d.Manufacturer, d.DeviceModel || d.Model]
+                     .filter(Boolean).join(' ');
+    const os     = d.OSVersion ? 'Android ' + d.OSVersion : '';
+
+    html += `
+      <div class="device-item">
+        <input type="checkbox" class="dev-chk" data-id="${esc(id)}" data-name="${esc(name)}"/>
+        <span class="${online ? 'device-online' : 'device-offline'}"
+              title="${online ? 'Online' : 'Offline'}"></span>
+        <div style="flex:1;min-width:0">
+          <div class="device-name">${esc(name)}</div>
+          <div class="device-meta">${esc(id)}${model ? ' · ' + esc(model) : ''}${os ? ' · ' + esc(os) : ''}</div>
+        </div>
+      </div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+function toggleAll(checked) {
+  document.querySelectorAll('.dev-chk').forEach(c => c.checked = checked);
+}
+
+function getSelectedDevices() {
+  return Array.from(document.querySelectorAll('.dev-chk:checked'))
+    .map(c => ({ id: c.dataset.id, name: c.dataset.name }));
+}
+
+/* ═══════════════════════════════════════════════
+   Log Search
+═══════════════════════════════════════════════ */
+async function doSearch() {
+  const query  = document.getElementById('search-input').value.trim();
+  const errEl  = document.getElementById('search-error');
+  const resEl  = document.getElementById('search-results');
+  const btn    = document.getElementById('btn-search');
+
+  errEl.style.display = 'none';
+
+  if (!query) {
+    errEl.textContent = 'Enter a search query.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const selected = getSelectedDevices();
+  if (!selected.length) {
+    errEl.textContent = 'Select at least one device.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  // Clear previous polls
+  Object.values(pollTimers).forEach(clearInterval);
+  pollTimers = {};
+
+  btn.disabled = true;
+  btn.textContent = 'Searching…';
+  resEl.innerHTML = `<div class="empty">Sending scripts to ${selected.length} device${selected.length > 1 ? 's' : ''}…</div>`;
+
+  try {
+    const r = await fetch('/soti/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, device_ids: selected.map(d => d.id) }),
+    });
+    const data = await r.json();
+
+    if (data.error) {
+      errEl.textContent = data.error;
+      errEl.style.display = 'block';
+      resEl.innerHTML = '';
+      return;
+    }
+
+    resEl.innerHTML = '';
+    selected.forEach((dev, idx) => {
+      const jobData = data[dev.id] || {};
+      appendDeviceResult(resEl, dev, jobData, query, idx === 0);
+    });
+
+  } catch (e) {
+    errEl.textContent = 'Search failed: ' + e.message;
+    errEl.style.display = 'block';
+    resEl.innerHTML = '';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Search Devices';
+  }
+}
+
+function appendDeviceResult(container, dev, jobData, query, openDefault) {
+  const card = document.createElement('div');
+  card.className = 'result-card';
+  card.id = 'rc-' + dev.id;
+
+  const jobId = jobData.job
+    ? (jobData.job.JobId || jobData.job.Id || jobData.job.id || null)
+    : null;
+
+  card.innerHTML = `
+    <div class="result-header" onclick="toggleBody('${esc(dev.id)}')">
+      <span>📱 ${esc(dev.name)}</span>
+      <span style="color:#888;font-weight:normal;font-size:12px">${esc(dev.id)}</span>
+      <span class="job-badge badge-pending" id="badge-${esc(dev.id)}">⏳ pending</span>
+      <span style="margin-left:auto;font-size:11px;color:#aaa">▼</span>
+    </div>
+    <div class="result-body${openDefault ? ' open' : ''}" id="body-${esc(dev.id)}">
+      <div id="content-${esc(dev.id)}">Waiting for device response…</div>
+    </div>`;
+
+  container.appendChild(card);
+
+  if (jobData.status === 'error') {
+    setBadge(dev.id, 'error', '✗ error');
+    document.getElementById('content-' + dev.id).innerHTML =
+      `<span style="color:#991b1b">${esc(jobData.error)}</span>`;
+    return;
+  }
+
+  if (!jobId) {
+    setBadge(dev.id, 'error', '✗ no job ID');
+    document.getElementById('content-' + dev.id).innerHTML =
+      '<span style="color:#6b7280">Script was triggered but no Job ID was returned by the SOTI API. ' +
+      'Check the device directly or verify API permissions.</span>';
+    return;
+  }
+
+  startPolling(dev.id, jobId, query);
+}
+
+function startPolling(deviceId, jobId, query) {
+  let attempts = 0;
+  const MAX = 36; // ~3 min at 5 s intervals
+  pollTimers[deviceId] = setInterval(async () => {
+    attempts++;
+    if (attempts > MAX) {
+      clearInterval(pollTimers[deviceId]);
+      setBadge(deviceId, 'error', '⏱ timed out');
+      document.getElementById('content-' + deviceId).innerHTML =
+        '<span style="color:#6b7280">Timed out waiting for job result.</span>';
+      return;
+    }
+    try {
+      const r      = await fetch(`/soti/jobs/${encodeURIComponent(deviceId)}/${encodeURIComponent(jobId)}`);
+      const result = await r.json();
+      if (result.error) return; // still pending or transient error — keep polling
+
+      const status = (result.Status || result.status || result.JobStatus || '').toLowerCase();
+      if (status === 'completed' || status === 'success' || status === 'done') {
+        clearInterval(pollTimers[deviceId]);
+        const output = result.Output || result.output || result.Result || result.result || '';
+        renderOutput(deviceId, output, query);
+      } else if (status.startsWith('fail') || status === 'error' || status === 'cancelled') {
+        clearInterval(pollTimers[deviceId]);
+        setBadge(deviceId, 'error', '✗ ' + status);
+        document.getElementById('content-' + deviceId).innerHTML =
+          `<span style="color:#6b7280">Job ended with status: ${esc(status)}</span>`;
+      }
+      // otherwise still pending — keep polling
+    } catch (_) { /* network hiccup — keep polling */ }
+  }, 5000);
+}
+
+function renderOutput(deviceId, output, query) {
+  const trimmed = (output || '').trim();
+
+  if (!trimmed || trimmed === 'NO_MATCH') {
+    setBadge(deviceId, 'nomatch', '○ no match');
+    document.getElementById('content-' + deviceId).innerHTML =
+      `<span style="color:#6b7280">No matches for <em>${esc(query)}</em> on this device.</span>`;
+    return;
+  }
+
+  const escQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(escQuery, 'gi');
+
+  let html = '';
+  let matches = 0;
+  for (const line of trimmed.split('\n')) {
+    if (line.startsWith('FILE:')) {
+      html += `<div class="match-file">📄 ${esc(line.slice(5).trim())}</div>`;
+    } else if (line.trim()) {
+      matches++;
+      html += `<div class="match-line">${esc(line).replace(
+        new RegExp(escQuery, 'gi'),
+        m => `<mark>${m}</mark>`
+      )}</div>`;
+    }
+  }
+
+  if (!matches) {
+    setBadge(deviceId, 'nomatch', '○ no match');
+    document.getElementById('content-' + deviceId).innerHTML =
+      `<span style="color:#6b7280">No matches for <em>${esc(query)}</em>.</span>`;
+    return;
+  }
+
+  setBadge(deviceId, 'done', `✓ ${matches} match${matches > 1 ? 'es' : ''}`);
+  document.getElementById('content-' + deviceId).innerHTML = html;
+}
+
+function setBadge(deviceId, type, text) {
+  const el = document.getElementById('badge-' + deviceId);
+  if (!el) return;
+  el.className = 'job-badge badge-' + type;
+  el.textContent = text;
+}
+
+function toggleBody(deviceId) {
+  const el = document.getElementById('body-' + deviceId);
+  if (el) el.classList.toggle('open');
+}
+
+/* ═══════════════════════════════════════════════
+   Keyboard shortcuts
+═══════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  ['f-tenant','f-user','f-pass','f-cid','f-csec'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  });
+  const si = document.getElementById('search-input');
+  if (si) si.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+
+  {% if connected %}
+  /* Restore connected state after page reload */
+  document.getElementById('dot').className = 'dot dot-green';
+  document.getElementById('conn-label').textContent = 'Connected to SOTI MobiControl';
+  document.getElementById('btn-toggle-login').style.display = 'none';
+  document.getElementById('btn-logout').style.display = '';
+  document.getElementById('workspace').style.display = 'block';
+  loadFolderTree();
+  {% else %}
+  document.getElementById('dot').className = 'dot dot-red';
+  {% endif %}
+  document.getElementById('navToggle').addEventListener('click', () =>
+    document.getElementById('navLinks').classList.toggle('open'));
+});
+</script>
+</body>
+</html>

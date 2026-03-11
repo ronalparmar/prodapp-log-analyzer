@@ -3,72 +3,131 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Upload Logs – ProdApp Log Analyzer</title>
+  <title>Upload Logs — ProdApp Log Analyzer</title>
+  <link rel="stylesheet" href="/static/pb.css"/>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-           background: #f0f2f5; color: #333; }
-    nav { background: #1a1a2e; padding: 12px 24px; display: flex; align-items: center; gap: 24px; }
-    nav a { color: #e0e0e0; text-decoration: none; font-size: 14px; }
-    nav a:hover { color: #fff; }
-    nav .brand { color: #fff; font-weight: 700; font-size: 18px; text-decoration: none; }
-    .container { max-width: 700px; margin: 40px auto; padding: 0 16px; }
-    .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1); padding: 32px; }
-    h1 { font-size: 22px; margin-bottom: 20px; }
-    .drop-zone { border: 2px dashed #aaa; border-radius: 8px; padding: 40px; text-align: center;
-                 cursor: pointer; transition: border-color .2s; }
-    .drop-zone:hover { border-color: #4361ee; }
-    input[type=file] { display: none; }
-    .btn { display: inline-block; padding: 10px 24px; border-radius: 6px; font-size: 14px;
-           cursor: pointer; border: none; margin-top: 16px; }
-    .btn-primary { background: #4361ee; color: #fff; }
-    .btn-primary:hover { background: #3351de; }
-    .error { background: #fff0f0; color: #c00; border: 1px solid #fcc; border-radius: 6px;
-             padding: 12px 16px; margin-bottom: 16px; }
-    #file-name { margin-top: 8px; font-size: 13px; color: #666; }
+    .drop-zone {
+      border: 2px dashed var(--grey-3);
+      border-radius: var(--radius);
+      padding: 52px 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color var(--transition), background var(--transition);
+      background: var(--grey-1);
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--red);
+      background: var(--red-light);
+    }
+    .drop-icon { font-size: 52px; margin-bottom: 12px; transition: transform .2s; }
+    .drop-zone:hover .drop-icon { transform: translateY(-4px); }
+    .drop-hint { font-size: 15px; font-weight: 600; color: var(--text-mid); margin-bottom: 6px; }
+    .drop-sub  { font-size: 13px; color: var(--text-muted); }
+    .file-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--white); border: 1.5px solid var(--red);
+      color: var(--red); border-radius: 20px;
+      padding: 6px 14px; font-size: 13px; font-weight: 600;
+      margin-top: 14px;
+    }
   </style>
 </head>
 <body>
+
 <nav>
-  <a class="brand" href="/">🔍 ProdApp Log Analyzer</a>
-  <a href="/upload">Upload</a>
-  <a href="/search">Search</a>
-  <a href="/uploads">All Uploads</a>
+  <a class="nav-brand" href="/">
+    <div class="nav-logo">PB</div>
+    <div class="nav-brand-text">
+      <span class="brand-top">Posten Bring</span>
+      <span class="brand-bot">Log Analyzer</span>
+    </div>
+  </a>
+  <div class="nav-spacer"></div>
+  <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="nav-links" id="navLinks">
+    <a href="/upload"  class="nav-link active">📤 Upload</a>
+    <a href="/search"  class="nav-link">🔎 Search</a>
+    <a href="/uploads" class="nav-link">📂 All Uploads</a>
+    <a href="/soti/"   class="nav-link">📡 SOTI MobiControl</a>
+  </div>
 </nav>
-<div class="container">
+
+<div class="container-sm">
+
+  <div class="breadcrumb">
+    <a href="/">Home</a> › <span>Upload</span>
+  </div>
+
+  <div class="page-title">Upload Log File</div>
+  <div class="page-desc">Upload a <strong>.txt</strong> log file or a <strong>.zip</strong> archive containing multiple logs.</div>
+
+  {% if error %}
+  <div class="alert alert-error">⚠ {{ error }}</div>
+  {% endif %}
+
   <div class="card">
-    <h1>Upload Log File</h1>
-    {% if error %}
-    <div class="error">{{ error }}</div>
-    {% endif %}
-    <form action="/upload" method="post" enctype="multipart/form-data">
-      <div class="drop-zone" onclick="document.getElementById('file-input').click()">
-        <div style="font-size:40px">📁</div>
-        <p><strong>Click to select</strong> or drag &amp; drop a file</p>
-        <p style="font-size:13px;color:#888;margin-top:6px">Supported: <code>.txt</code> or <code>.zip</code></p>
-        <div id="file-name"></div>
-        <input type="file" id="file-input" name="file" accept=".txt,.zip" required
-               onchange="document.getElementById('file-name').textContent = this.files[0]?.name || ''"/>
+    <form action="/upload" method="post" enctype="multipart/form-data" id="upload-form">
+      <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+        <div class="drop-icon" id="drop-icon">📁</div>
+        <div class="drop-hint">Click to select or drag &amp; drop a file</div>
+        <div class="drop-sub">Supported formats: <strong>.txt</strong> &nbsp;·&nbsp; <strong>.zip</strong></div>
+        <div id="file-pill-wrap"></div>
+        <input type="file" id="file-input" name="file" accept=".txt,.zip" required style="display:none"
+               onchange="onFileSelected(this)"/>
       </div>
-      <button type="submit" class="btn btn-primary">Upload &amp; Parse</button>
+
+      <div style="margin-top:20px;display:flex;gap:12px;align-items:center">
+        <button type="submit" class="btn btn-primary" id="submit-btn">
+          📤 Upload &amp; Parse
+        </button>
+        <span id="upload-status" style="font-size:13px;color:var(--text-muted)"></span>
+      </div>
     </form>
   </div>
+
+  <div class="card card-flat" style="font-size:13.5px;color:var(--text-muted);line-height:1.8">
+    <strong style="color:var(--text-mid)">What happens after upload?</strong><br/>
+    The file is stored and each log line is parsed for scan events, item numbers, barcodes, exceptions, device IDs, and usernames. Results are searchable immediately.
+  </div>
+
 </div>
+
+<div class="page-footer">Posten Bring · <strong>ProdApp Log Analyzer</strong></div>
+
 <script>
-  const dz = document.querySelector('.drop-zone');
-  dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.borderColor='#4361ee'; });
-  dz.addEventListener('dragleave', () => { dz.style.borderColor='#aaa'; });
+  document.getElementById('navToggle').addEventListener('click', () =>
+    document.getElementById('navLinks').classList.toggle('open'));
+
+  function onFileSelected(inp) {
+    const name = inp.files[0]?.name || '';
+    const wrap = document.getElementById('file-pill-wrap');
+    wrap.innerHTML = name
+      ? `<div class="file-pill">✓ ${name}</div>`
+      : '';
+  }
+
+  const dz = document.getElementById('drop-zone');
+  dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
   dz.addEventListener('drop', e => {
-    e.preventDefault();
-    dz.style.borderColor='#aaa';
+    e.preventDefault(); dz.classList.remove('drag-over');
     const f = e.dataTransfer.files[0];
     if (f) {
       const inp = document.getElementById('file-input');
-      const dt = new DataTransfer();
+      const dt  = new DataTransfer();
       dt.items.add(f);
       inp.files = dt.files;
-      document.getElementById('file-name').textContent = f.name;
+      onFileSelected(inp);
     }
+  });
+
+  document.getElementById('upload-form').addEventListener('submit', () => {
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Uploading…';
+    document.getElementById('upload-status').textContent = 'Parsing log file, please wait…';
   });
 </script>
 </body>

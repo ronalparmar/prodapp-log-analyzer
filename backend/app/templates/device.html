@@ -3,93 +3,206 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Device {{ device_id }} – ProdApp Log Analyzer</title>
+  <title>Device {{ device_id }} — ProdApp Log Analyzer</title>
+  <link rel="stylesheet" href="/static/pb.css"/>
+  <script src="/static/pb.js" defer></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-           background: #f0f2f5; color: #333; }
-    nav { background: #1a1a2e; padding: 12px 24px; display: flex; align-items: center; gap: 24px; }
-    nav a { color: #e0e0e0; text-decoration: none; font-size: 14px; }
-    nav a:hover { color: #fff; }
-    nav .brand { color: #fff; font-weight: 700; font-size: 18px; text-decoration: none; }
-    .container { max-width: 900px; margin: 30px auto; padding: 0 16px; }
-    .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1); padding: 24px; margin-bottom: 20px; }
-    h1 { font-size: 22px; margin-bottom: 16px; }
-    h2 { font-size: 16px; color: #444; margin-bottom: 10px; }
-    .stats-row { display: flex; gap: 16px; flex-wrap: wrap; }
-    .stat-box { background: #f8f9fa; border-radius: 6px; padding: 12px 20px; text-align: center; min-width: 110px; }
-    .stat-num { font-size: 26px; font-weight: 700; color: #4361ee; }
-    .stat-label { font-size: 12px; color: #888; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; }
-    th { background: #f8f9fa; font-weight: 600; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; }
-    .badge-qa { background: #fff3cd; color: #856404; }
-    .badge-prod { background: #d1fae5; color: #065f46; }
-    a { color: #4361ee; }
+    .device-hero {
+      background: linear-gradient(135deg, var(--dark) 0%, #2d1a1a 100%);
+      border-radius: var(--radius-lg);
+      padding: 32px 36px;
+      margin-bottom: 20px;
+      display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+    }
+    .device-avatar {
+      width: 60px; height: 60px; border-radius: 14px;
+      background: var(--red); display: flex; align-items: center;
+      justify-content: center; font-size: 28px; flex-shrink: 0;
+    }
+    .device-info-title { font-size: 22px; font-weight: 800; color: #fff; }
+    .device-info-sub   { font-size: 13px; color: #aaa; margin-top: 4px; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+    @media (max-width: 700px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    .section-tag {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 14px; font-weight: 700; color: var(--text-mid);
+      margin: 0 0 12px;
+      padding-left: 10px;
+      border-left: 3px solid var(--red);
+    }
+    .meta-row {
+      display: flex; gap: 12px; padding: 9px 14px;
+      background: var(--grey-1); border-radius: var(--radius-sm);
+      margin-bottom: 6px; align-items: flex-start;
+    }
+    .meta-key { font-weight: 700; color: var(--text-muted); min-width: 120px; font-size: 13px; flex-shrink: 0; }
+    .meta-val { font-size: 13.5px; }
   </style>
 </head>
 <body>
+
 <nav>
-  <a class="brand" href="/">🔍 ProdApp Log Analyzer</a>
-  <a href="/upload">Upload</a>
-  <a href="/search">Search</a>
-  <a href="/uploads">All Uploads</a>
-</nav>
-<div class="container">
-  <div class="card">
-    <h1>Device: {{ device_id }}</h1>
-    {% if summary %}
-    <div class="stats-row">
-      <div class="stat-box"><div class="stat-num">{{ summary.scan_count }}</div><div class="stat-label">Scans</div></div>
-      <div class="stat-box"><div class="stat-num">{{ summary.manual_count }}</div><div class="stat-label">Manual</div></div>
-      <div class="stat-box"><div class="stat-num">{{ summary.exception_count }}</div><div class="stat-label">Exceptions</div></div>
-      <div class="stat-box"><div class="stat-num">{{ summary.log_file_count }}</div><div class="stat-label">Log Files</div></div>
+  <a class="nav-brand" href="/">
+    <div class="nav-logo">PB</div>
+    <div class="nav-brand-text">
+      <span class="brand-top">Posten Bring</span>
+      <span class="brand-bot">Log Analyzer</span>
     </div>
-    <br/>
-    <p><strong>Environments:</strong> {{ summary.environments | join(', ') or '—' }}</p>
-    <p><strong>App Versions:</strong> {{ summary.app_versions | join(', ') or '—' }}</p>
-    <p><strong>Users:</strong> {{ summary.emails | join(', ') or '—' }}</p>
-    {% if summary.top_items %}
-    <br/>
-    <h2>Top Scanned Items</h2>
-    <table>
-      <thead><tr><th>Item Number</th><th>Count</th></tr></thead>
-      <tbody>
-      {% for item, cnt in summary.top_items %}
-      <tr><td>{{ item }}</td><td>{{ cnt }}</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    {% endif %}
-    {% else %}
-    <p>No data found for this device.</p>
-    {% endif %}
+  </a>
+  <div class="nav-spacer"></div>
+  <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="nav-links" id="navLinks">
+    <a href="/upload"  class="nav-link">📤 Upload</a>
+    <a href="/search"  class="nav-link">🔎 Search</a>
+    <a href="/uploads" class="nav-link">📂 All Uploads</a>
+    <a href="/soti/"   class="nav-link">📡 SOTI MobiControl</a>
+  </div>
+</nav>
+
+<div class="container-md">
+
+  <div class="breadcrumb"><a href="/">Home</a> › <a href="/uploads">Uploads</a> › <span>{{ device_id }}</span></div>
+
+  <div class="device-hero">
+    <div class="device-avatar">📱</div>
+    <div>
+      <div class="device-info-title">{{ device_id }}</div>
+      <div class="device-info-sub">
+        {% if summary %}
+          {{ summary.environments | join(', ') or 'Unknown env' }}
+          &nbsp;·&nbsp; {{ summary.log_file_count }} log file{{ 's' if summary.log_file_count != 1 else '' }}
+        {% endif %}
+      </div>
+    </div>
+    <div style="margin-left:auto">
+      <a class="btn btn-ghost btn-sm" href="/search?q={{ device_id }}&search_type=device">🔎 Search this device</a>
+    </div>
   </div>
 
-  {% if log_files %}
+  {% if summary %}
+  <div class="stats-grid">
+    <div class="stat-box"><div class="stat-num">{{ summary.scan_count }}</div><div class="stat-label">Scans</div></div>
+    <div class="stat-box"><div class="stat-num">{{ summary.manual_count }}</div><div class="stat-label">Manual</div></div>
+    <div class="stat-box"><div class="stat-num">{{ summary.exception_count }}</div><div class="stat-label">Exceptions</div></div>
+    <div class="stat-box"><div class="stat-num">{{ summary.log_file_count }}</div><div class="stat-label">Log Files</div></div>
+  </div>
+
   <div class="card">
-    <h2>Log Files</h2>
-    <table>
-      <thead><tr><th>File</th><th>Environment</th><th>Package</th><th>Parsed At</th><th>Download</th></tr></thead>
-      <tbody>
-      {% for lf in log_files %}
-      <tr>
-        <td>{{ lf.filename }}</td>
-        <td>
-          {% if lf.environment %}
-            <span class="badge badge-{{ lf.environment | lower }}">{{ lf.environment }}</span>
-          {% else %}—{% endif %}
-        </td>
-        <td>{{ lf.package_name or '—' }}</td>
-        <td>{{ lf.parsed_at.strftime('%Y-%m-%d %H:%M') if lf.parsed_at else '—' }}</td>
-        <td><a href="/logfiles/{{ lf.id }}/download">⬇ Download</a></td>
-      </tr>
-      {% endfor %}
-      </tbody>
-    </table>
+    <div class="section-tag">ℹ Device Info</div>
+    <div class="meta-row"><span class="meta-key">Environments</span><span class="meta-val">{{ summary.environments | join(', ') or '—' }}</span></div>
+    <div class="meta-row"><span class="meta-key">App Versions</span><span class="meta-val">{{ summary.app_versions | join(', ') or '—' }}</span></div>
+    <div class="meta-row"><span class="meta-key">Users</span><span class="meta-val">{{ summary.emails | join(', ') or '—' }}</span></div>
+  </div>
+
+  {% if summary.top_items %}
+  <div class="card">
+    <div class="section-tag">🏆 Top Scanned Items</div>
+    <div class="table-wrap">
+      <table id="top-items-table" data-filter="true">
+        <thead>
+          <tr><th>#</th><th>Item Number</th><th>Count</th></tr>
+          <tr class="filter-row">
+            <th></th>
+            <th><input class="col-filter" type="text" placeholder="Item…"/></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for item, cnt in summary.top_items %}
+        <tr>
+          <td class="text-muted text-sm">{{ loop.index }}</td>
+          <td><strong>{{ item }}</strong></td>
+          <td><span class="badge badge-scan">{{ cnt }}</span></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
   {% endif %}
+
+  {% else %}
+  <div class="card">
+    <div class="empty-state">
+      <div class="empty-icon">📱</div>
+      <p>No data found for this device.</p>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if log_files %}
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:20px 24px 12px">
+      <div class="section-tag" style="margin:0">📄 Log Files (<span id="logfiles-table-count">{{ log_files | length }}</span>)</div>
+    </div>
+    <div class="table-wrap">
+      <table id="logfiles-table" data-filter="true">
+        <thead>
+          <tr><th>File</th><th>Environment</th><th>Package</th><th>Parsed At</th><th style="text-align:right">Download</th></tr>
+          <tr class="filter-row">
+            <th><input class="col-filter" type="text" placeholder="Filename…"/></th>
+            <th><input class="col-filter" type="text" placeholder="Env…"/></th>
+            <th><input class="col-filter" type="text" placeholder="Package…"/></th>
+            <th><input class="col-filter" type="text" placeholder="Date…"/></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for lf in log_files %}
+        <tr>
+          <td class="font-bold">{{ lf.filename }}</td>
+          <td>
+            {% if lf.environment %}
+              <span class="badge badge-{{ lf.environment | lower }}">{{ lf.environment }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td class="text-sm text-muted">{{ lf.package_name or '—' }}</td>
+          <td class="text-sm text-muted">{{ lf.parsed_at.strftime('%d %b %Y, %H:%M') if lf.parsed_at else '—' }}</td>
+          <td style="text-align:right"><a class="btn btn-secondary btn-sm" href="/logfiles/{{ lf.id }}/download">⬇ Download</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if master_syncs %}
+  <div class="card">
+    <div class="section-tag">🔄 Master Data Sync Events (<span id="master-syncs-table-count">{{ master_syncs | length }}</span>)</div>
+    <div class="table-wrap">
+      <table id="master-syncs-table" data-filter="true">
+        <thead>
+          <tr><th>Timestamp</th><th>Info</th><th>Log File</th></tr>
+          <tr class="filter-row">
+            <th><input class="col-filter" type="text" placeholder="Date…"/></th>
+            <th><input class="col-filter" type="text" placeholder="Filter info…"/></th>
+            <th><input class="col-filter" type="text" placeholder="File ID…"/></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for ms in master_syncs %}
+        <tr>
+          <td class="text-sm text-muted">{{ ms.raw_ts }}</td>
+          <td class="text-sm">{{ ms.info }}</td>
+          <td class="text-sm text-muted">#{{ ms.log_file_id }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
 </div>
+
+<div class="page-footer">Posten Bring · <strong>ProdApp Log Analyzer</strong></div>
+
+<script>
+  document.getElementById('navToggle').addEventListener('click', () =>
+    document.getElementById('navLinks').classList.toggle('open'));
+</script>
 </body>
 </html>

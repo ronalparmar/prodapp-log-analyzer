@@ -18,6 +18,8 @@ from sqlalchemy import (
     String,
     Text,
     create_engine,
+    inspect as sa_inspect,
+    text as sa_text,
 )
 from sqlalchemy.orm import DeclarativeBase, Session, relationship, sessionmaker
 
@@ -36,6 +38,9 @@ class Upload(Base):
     stored_path = Column(String(512), nullable=False)
     uploaded_at = Column(DateTime, default=datetime.utcnow)
     file_size = Column(Integer, nullable=True)
+    file_hash = Column(String(64), nullable=True, index=True)   # SHA-256 for deduplication
+    is_deleted = Column(Boolean, default=False, nullable=False)
+    deleted_at = Column(DateTime, nullable=True)
 
     log_files = relationship("LogFile", back_populates="upload", cascade="all, delete-orphan")
 
@@ -60,6 +65,7 @@ class LogFile(Base):
     emails = relationship("UserEmail", back_populates="log_file", cascade="all, delete-orphan")
     scan_events = relationship("ScanEvent", back_populates="log_file", cascade="all, delete-orphan")
     exception_events = relationship("ExceptionEvent", back_populates="log_file", cascade="all, delete-orphan")
+    master_sync_events = relationship("MasterDataSyncEvent", back_populates="log_file", cascade="all, delete-orphan")
 
 
 class AppVersion(Base):
@@ -94,6 +100,8 @@ class ScanEvent(Base):
     entry_mode = Column(String(16), nullable=True)   # "scan" or "manual"
     process = Column(String(128), nullable=True)
     line_number = Column(Integer, nullable=True)
+    event_id = Column(String(64), nullable=True)        # GUID from "GoodsEvent inserted: <guid>"
+    return_state = Column(String(128), nullable=True)   # from "Return state is <state>"
 
     log_file = relationship("LogFile", back_populates="scan_events")
 
@@ -113,9 +121,52 @@ class ExceptionEvent(Base):
     log_file = relationship("LogFile", back_populates="exception_events")
 
 
+class MasterDataSyncEvent(Base):
+    __tablename__ = "master_data_sync_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    log_file_id = Column(Integer, ForeignKey("log_files.id"), nullable=False)
+    timestamp = Column(DateTime, nullable=True)
+    raw_ts = Column(String(32), nullable=True)
+    info = Column(Text, nullable=True)      # text after "Master data sync :: "
+    line_number = Column(Integer, nullable=True)
+
+    log_file = relationship("LogFile", back_populates="master_sync_events")
+
+
 # ---------------------------------------------------------------------------
 # Engine / session factory
 # ---------------------------------------------------------------------------
+
+def _migrate_db(engine) -> None:
+    """Apply incremental column additions for existing databases without data loss."""
+    try:
+        insp = sa_inspect(engine)
+        table_migrations: dict[str, list[tuple[str, str]]] = {
+            "uploads": [
+                ("file_hash",  "VARCHAR(64)"),
+                ("is_deleted", "INTEGER NOT NULL DEFAULT 0"),
+                ("deleted_at", "DATETIME"),
+            ],
+            "scan_events": [
+                ("event_id",     "VARCHAR(64)"),
+                ("return_state", "VARCHAR(128)"),
+            ],
+        }
+        with engine.begin() as conn:
+            for table, cols in table_migrations.items():
+                try:
+                    existing = {c["name"] for c in insp.get_columns(table)}
+                    for col_name, col_type in cols:
+                        if col_name not in existing:
+                            conn.execute(sa_text(
+                                f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}"
+                            ))
+                except Exception:
+                    pass  # table not yet created — create_all will handle it
+    except Exception:
+        pass  # non-fatal: fresh DB will have all columns from create_all
+
 
 def get_engine(url: str = DATABASE_URL):
     os.makedirs(os.path.dirname(os.path.abspath(url.replace("sqlite:///", ""))), exist_ok=True)
@@ -126,7 +177,8 @@ def get_engine(url: str = DATABASE_URL):
 def init_db(engine=None):
     if engine is None:
         engine = get_engine()
-    Base.metadata.create_all(bind=engine)
+    _migrate_db(engine)           # add new columns to existing tables first
+    Base.metadata.create_all(bind=engine)  # create any new tables
     return engine
 
 
@@ -134,3 +186,4 @@ def get_session_factory(engine=None):
     if engine is None:
         engine = get_engine()
     return sessionmaker(autocommit=False, autoflush=False, bind=engine)
+

@@ -3,163 +3,215 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Search – ProdApp Log Analyzer</title>
+  <title>Search — ProdApp Log Analyzer</title>
+  <link rel="stylesheet" href="/static/pb.css"/>
+  <script src="/static/pb.js" defer></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-           background: #f0f2f5; color: #333; }
-    nav { background: #1a1a2e; padding: 12px 24px; display: flex; align-items: center; gap: 24px; }
-    nav a { color: #e0e0e0; text-decoration: none; font-size: 14px; }
-    nav a:hover { color: #fff; }
-    nav .brand { color: #fff; font-weight: 700; font-size: 18px; text-decoration: none; }
-    .container { max-width: 1100px; margin: 30px auto; padding: 0 16px; }
-    .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.1); padding: 24px; margin-bottom: 20px; }
-    h1 { font-size: 22px; margin-bottom: 16px; }
-    h2 { font-size: 16px; color: #444; margin-bottom: 10px; }
-    .search-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
-    .field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
-    .field label { font-weight: 600; color: #555; }
-    input, select { padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; min-width: 160px; }
-    input:focus, select:focus { outline: none; border-color: #4361ee; }
-    .btn { padding: 9px 22px; border-radius: 6px; font-size: 14px; cursor: pointer; border: none; }
-    .btn-primary { background: #4361ee; color: #fff; }
-    .btn-primary:hover { background: #3351de; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #eee; }
-    th { background: #f8f9fa; font-weight: 600; }
-    tr:hover { background: #f9fafb; }
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; }
-    .badge-qa { background: #fff3cd; color: #856404; }
-    .badge-prod { background: #d1fae5; color: #065f46; }
-    .badge-scan { background: #dbeafe; color: #1e40af; }
-    .badge-manual { background: #fce7f3; color: #9d174d; }
-    .stats-row { display: flex; gap: 16px; flex-wrap: wrap; }
-    .stat-box { background: #f8f9fa; border-radius: 6px; padding: 12px 20px; text-align: center; min-width: 110px; }
-    .stat-num { font-size: 26px; font-weight: 700; color: #4361ee; }
-    .stat-label { font-size: 12px; color: #888; }
-    .error { background: #fff0f0; color: #c00; border: 1px solid #fcc; border-radius: 6px; padding: 12px 16px; margin-bottom: 16px; }
-    .empty { color: #888; text-align: center; padding: 30px; }
+    .search-panel { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+    .search-panel .field { flex: 1; min-width: 150px; }
+    .search-panel .field-xs { min-width: 130px; max-width: 180px; }
+    .filters-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; align-items: flex-end; }
+    .highlight { background: #FEF08A; padding: 0 2px; border-radius: 2px; }
+    .result-section-title {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 14px; font-weight: 700; margin-bottom: 10px;
+      padding-left: 10px; border-left: 3px solid var(--red);
+      color: var(--text-mid);
+    }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+    @media (max-width: 700px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 420px) { .stats-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
+
 <nav>
-  <a class="brand" href="/">🔍 ProdApp Log Analyzer</a>
-  <a href="/upload">Upload</a>
-  <a href="/search">Search</a>
-  <a href="/uploads">All Uploads</a>
+  <a class="nav-brand" href="/">
+    <div class="nav-logo">PB</div>
+    <div class="nav-brand-text">
+      <span class="brand-top">Posten Bring</span>
+      <span class="brand-bot">Log Analyzer</span>
+    </div>
+  </a>
+  <div class="nav-spacer"></div>
+  <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="nav-links" id="navLinks">
+    <a href="/upload"  class="nav-link">📤 Upload</a>
+    <a href="/search"  class="nav-link active">🔎 Search</a>
+    <a href="/uploads" class="nav-link">📂 All Uploads</a>
+    <a href="/soti/"   class="nav-link">📡 SOTI MobiControl</a>
+  </div>
 </nav>
+
 <div class="container">
+
+  <div class="breadcrumb"><a href="/">Home</a> › <span>Search</span></div>
+  <div class="page-title">Search Events</div>
+  <div class="page-desc">Find scan events, device activity and exceptions across all uploaded log files.</div>
+
   <div class="card">
-    <h1>Search Events</h1>
-    {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    {% if error %}<div class="alert alert-error">⚠ {{ error }}</div>{% endif %}
     <form method="get" action="/search">
-      <div class="search-row">
-        <div class="field">
+      <div class="search-panel">
+        <div class="field field-xs">
           <label>Search type</label>
           <select name="search_type">
-            <option value="item" {% if search_type=='item' %}selected{% endif %}>Item Number</option>
-            <option value="device" {% if search_type=='device' %}selected{% endif %}>Device ID</option>
+            <option value="item"      {% if search_type=='item'      %}selected{% endif %}>Item Number</option>
+            <option value="device"    {% if search_type=='device'    %}selected{% endif %}>Device ID</option>
             <option value="exception" {% if search_type=='exception' %}selected{% endif %}>Exception</option>
           </select>
         </div>
-        <div class="field" style="flex:1;min-width:220px">
+        <div class="field" style="flex:2;min-width:220px">
           <label>Query</label>
           <input type="text" name="q" value="{{ q }}" placeholder="e.g. 00370438104439901228" required/>
         </div>
-        <div class="field">
-          <label>Date from</label>
-          <input type="date" name="date_from" value="{{ date_from }}"/>
-        </div>
-        <div class="field">
-          <label>Date to</label>
-          <input type="date" name="date_to" value="{{ date_to }}"/>
-        </div>
-        <div class="field">
-          <label>Environment</label>
-          <select name="environment">
-            <option value="">Any</option>
-            <option value="QA" {% if environment=='QA' %}selected{% endif %}>QA</option>
-            <option value="PROD" {% if environment=='PROD' %}selected{% endif %}>PROD</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Process</label>
-          <input type="text" name="process" value="{{ process }}" placeholder="e.g. DeliveryToCustomer"/>
-        </div>
-        <div class="field" style="justify-content:flex-end">
-          <button type="submit" class="btn btn-primary">Search</button>
+        <div>
+          <button type="submit" class="btn btn-primary" style="margin-top:22px">🔎 Search</button>
         </div>
       </div>
+      <details {% if date_from or date_to or environment or process %}open{% endif %} style="margin-top:14px">
+        <summary style="cursor:pointer;font-size:13px;color:var(--text-muted);font-weight:600;user-select:none">▸ Filters</summary>
+        <div class="filters-row" style="margin-top:12px">
+          <div class="field">
+            <label>Date from</label>
+            <input type="date" name="date_from" value="{{ date_from }}"/>
+          </div>
+          <div class="field">
+            <label>Date to</label>
+            <input type="date" name="date_to" value="{{ date_to }}"/>
+          </div>
+          <div class="field">
+            <label>Environment</label>
+            <select name="environment">
+              <option value="">Any</option>
+              <option value="QA"   {% if environment=='QA'   %}selected{% endif %}>QA</option>
+              <option value="PROD" {% if environment=='PROD' %}selected{% endif %}>PROD</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Process</label>
+            <input type="text" name="process" value="{{ process }}" placeholder="e.g. DeliveryToCustomer" style="min-width:180px"/>
+          </div>
+        </div>
+      </details>
     </form>
   </div>
 
   {% if q %}
   <div class="card">
-    <h2>Summary</h2>
-    <div class="stats-row">
+    <div class="result-section-title">📊 Summary for "{{ q }}"</div>
+    <div class="stats-grid">
       <div class="stat-box"><div class="stat-num">{{ summary.scan_count or 0 }}</div><div class="stat-label">Scans</div></div>
       <div class="stat-box"><div class="stat-num">{{ summary.manual_count or 0 }}</div><div class="stat-label">Manual</div></div>
       <div class="stat-box"><div class="stat-num">{{ summary.exception_count or 0 }}</div><div class="stat-label">Exceptions</div></div>
       <div class="stat-box"><div class="stat-num">{{ (summary.scan_count or 0) + (summary.manual_count or 0) }}</div><div class="stat-label">Total Events</div></div>
     </div>
+
     {% if summary.top_items %}
-    <br/>
-    <h2>Top Items</h2>
-    <table>
-      <thead><tr><th>Item Number</th><th>Count</th></tr></thead>
-      <tbody>
-      {% for item, cnt in summary.top_items %}
-      <tr><td>{{ item }}</td><td>{{ cnt }}</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
+    <div class="divider"></div>
+    <div class="result-section-title">🏆 Top Items</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Item Number</th><th>Occurrences</th></tr></thead>
+        <tbody>
+        {% for item, cnt in summary.top_items %}
+        <tr>
+          <td class="text-muted">{{ loop.index }}</td>
+          <td><strong>{{ item }}</strong></td>
+          <td><span class="badge badge-scan">{{ cnt }}</span></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
     {% endif %}
   </div>
 
   {% if scan_events %}
   <div class="card">
-    <h2>Scan Events ({{ scan_events | length }})</h2>
-    <table>
-      <thead><tr><th>Timestamp</th><th>Item Number</th><th>Format</th><th>Mode</th><th>Process</th><th>Log File</th></tr></thead>
-      <tbody>
-      {% for se in scan_events %}
-      <tr>
-        <td>{{ se.raw_ts }}</td>
-        <td>{{ se.item_number }}</td>
-        <td>{{ se.barcode_format }}</td>
-        <td><span class="badge badge-{{ se.entry_mode }}">{{ se.entry_mode }}</span></td>
-        <td>{{ se.process }}</td>
-        <td><a href="/logfiles/{{ se.log_file_id }}/download">⬇ #{{ se.log_file_id }}</a></td>
-      </tr>
-      {% endfor %}
-      </tbody>
-    </table>
+    <div class="result-section-title">📦 Scan Events (<span id="scans-table-count">{{ scan_events | length }}</span>)</div>
+    <div class="table-wrap">
+      <table id="scans-table" data-filter="true">
+        <thead>
+          <tr><th>Timestamp</th><th>Item Number</th><th>Format</th><th>Mode</th><th>Process</th><th>Event ID</th><th>Return State</th><th>File</th></tr>
+          <tr class="filter-row">
+            <th><input class="col-filter" type="text" placeholder="Date…"/></th>
+            <th><input class="col-filter" type="text" placeholder="Item…"/></th>
+            <th><input class="col-filter" type="text" placeholder="Format…"/></th>
+            <th><input class="col-filter" type="text" placeholder="Mode…"/></th>
+            <th><input class="col-filter" type="text" placeholder="Process…"/></th>
+            <th><input class="col-filter" type="text" placeholder="GUID…"/></th>
+            <th><input class="col-filter" type="text" placeholder="State…"/></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for se in scan_events %}
+        <tr>
+          <td class="text-muted text-sm">{{ se.raw_ts }}</td>
+          <td><strong>{{ se.item_number }}</strong></td>
+          <td>{{ se.barcode_format }}</td>
+          <td><span class="badge badge-{{ se.entry_mode }}">{{ se.entry_mode }}</span></td>
+          <td>{{ se.process }}</td>
+          <td class="text-sm text-muted" style="font-family:monospace">{{ se.event_id or '—' }}</td>
+          <td>{% if se.return_state %}<span class="badge badge-grey">{{ se.return_state }}</span>{% else %}—{% endif %}</td>
+          <td><a href="/logfiles/{{ se.log_file_id }}/download" title="Download log file">⬇ #{{ se.log_file_id }}</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
   {% endif %}
 
   {% if exception_events %}
   <div class="card">
-    <h2>Exception Events ({{ exception_events | length }})</h2>
-    <table>
-      <thead><tr><th>Timestamp</th><th>Type</th><th>Message</th><th>Log File</th></tr></thead>
-      <tbody>
-      {% for ex in exception_events %}
-      <tr>
-        <td>{{ ex.raw_ts }}</td>
-        <td>{{ ex.exception_type }}</td>
-        <td>{{ ex.message[:120] if ex.message else '' }}{% if ex.message and ex.message|length > 120 %}…{% endif %}</td>
-        <td><a href="/logfiles/{{ ex.log_file_id }}/download">⬇ #{{ ex.log_file_id }}</a></td>
-      </tr>
-      {% endfor %}
-      </tbody>
-    </table>
+    <div class="result-section-title">⚠ Exception Events (<span id="exc-table-count">{{ exception_events | length }}</span>)</div>
+    <div class="table-wrap">
+      <table id="exc-table" data-filter="true">
+        <thead>
+          <tr><th>Timestamp</th><th>Type</th><th>Message</th><th>File</th></tr>
+          <tr class="filter-row">
+            <th><input class="col-filter" type="text" placeholder="Date…"/></th>
+            <th><input class="col-filter" type="text" placeholder="Type…"/></th>
+            <th><input class="col-filter" type="text" placeholder="Message…"/></th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for ex in exception_events %}
+        <tr>
+          <td class="text-muted text-sm">{{ ex.raw_ts }}</td>
+          <td><span class="badge badge-red">{{ ex.exception_type }}</span></td>
+          <td>{{ ex.message[:140] if ex.message else '' }}{% if ex.message and ex.message|length > 140 %}…{% endif %}</td>
+          <td><a href="/logfiles/{{ ex.log_file_id }}/download">⬇ #{{ ex.log_file_id }}</a></td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
   {% endif %}
 
   {% if not scan_events and not exception_events %}
-  <div class="card"><div class="empty">No results found for "{{ q }}".</div></div>
+  <div class="card">
+    <div class="empty-state">
+      <div class="empty-icon">🔍</div>
+      <p>No results found for <strong>{{ q }}</strong>.<br/>Try a different query or upload more log files.</p>
+    </div>
+  </div>
   {% endif %}
   {% endif %}
+
 </div>
+
+<div class="page-footer">Posten Bring · <strong>ProdApp Log Analyzer</strong></div>
+
+<script>
+  document.getElementById('navToggle').addEventListener('click', () =>
+    document.getElementById('navLinks').classList.toggle('open'));
+</script>
 </body>
 </html>
